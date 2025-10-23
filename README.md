@@ -1,6 +1,6 @@
-🇮🇹 **Italiano**
-
 # VPR-GTAV2Real
+
+🇮🇹 **Italiano**
 
 **Visual Place Recognition (VPR) da dati sintetici a dati reali**
 
@@ -9,8 +9,6 @@ Progetto di tesi magistrale sulla Visual Place Recognition: l’obiettivo è add
 ---
 
 🇬🇧 **English**
-
-# VPR-GTAV2Real
 
 **Visual Place Recognition (VPR) from Synthetic to Real Data**
 
