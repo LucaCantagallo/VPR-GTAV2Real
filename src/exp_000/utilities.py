@@ -21,7 +21,6 @@ def count_images(root_dir, extensions={'.jpg', '.jpeg', '.png'}):
     return sum(1 for _ in visit_images(root_dir, extensions))
 
 dataset_root = '/home/lcantagallo/VPR-GTAV2Real/dataset/GTAV'
-    
+
 # Conta immagini
-total = count_images(dataset_root)
-print(f"Totale immagini: {total}") # Output: Totale immagini: 20919
+print(f"Totale immagini: {count_images(dataset_root)}") # Output: Totale immagini: 20919
