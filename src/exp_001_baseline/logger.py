@@ -4,10 +4,11 @@ import datetime
 import os
 
 class ExperimentLogger:
-    def __init__(self, work_dir, n_epochs, batch_size, lr, dataset_name):
+    def __init__(self, work_dir, n_epochs, batch_size, lr, dataset_name, device):
         self.work_dir = work_dir
         os.makedirs(work_dir, exist_ok=True)
         
+        self.device = device
         self.n_epochs = n_epochs
         self.batch_size = batch_size
         self.lr = lr
@@ -45,6 +46,7 @@ class ExperimentLogger:
             "end_time": str(end_time),
             "total_seconds": total_seconds,
             "total_minutes": total_seconds / 60,
+            "device": self.device,
             "n_epochs": self.n_epochs,
             "batch_size": self.batch_size,
             "learning_rate": self.lr,

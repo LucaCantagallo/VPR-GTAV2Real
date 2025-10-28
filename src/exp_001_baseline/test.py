@@ -19,7 +19,7 @@ def test(features0, features1, cm, j, name):
         cosine_sim = F.cosine_similarity(features0[i].unsqueeze(0), features1)
         cm[i] = cosine_sim
                     
-    np.savetxt(os.path.join(work_dir, f"cm_{name}_{model_names[j]}.txt"), cm)
+    np.savetxt(os.path.join(test_dir, f"cm_{name}_{model_names[j]}.txt"), cm)
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     
     experiments_dir = "./experiments"
     
-    config_file = "./test.yaml"
+    config_file = "./test_and_evaluate.yaml"
     params = load_params(config_file)
     
     base_path = os.path.join(experiments_dir, params["dataset"])
@@ -37,11 +37,15 @@ if __name__ == "__main__":
     else:
         work_dir = os.path.join(base_path, params["work_dir"])
         
+    # Creo la cartella test/ per salvare le cm
+    test_dir = os.path.join(work_dir, "test")
+    os.makedirs(test_dir, exist_ok=True)
+        
     seed = params["seed"]
     np.random.seed(seed)
     torch.manual_seed(seed)    
     
-    root = "/mnt/e/Tokyo_24_7" #TODO change to the correct path
+    root = "/home/lcantagallo/VPR-GTAV2Real/dataset/Tokyo247/Tokyo_24_7"
     places = glob(os.path.join(root, "*"))
     
     places = [places[i] for i in range(len(places)) if i % 3 == 0 or i % 3 == 2]
@@ -75,5 +79,4 @@ if __name__ == "__main__":
         cm_night = np.zeros((len(places) // 2, len(places) // 2))
         
         test(day_features, night_features, cm_day, j, "day")
-        test(night_features, day_features, cm_night, j, "night")   
-    
+        test(night_features, day_features, cm_night, j, "night")

@@ -1,5 +1,5 @@
 seed: 42
-dataset: "all" #"gta" #"alderley" #"all"
+dataset: "gta" #"gta" #"alderley" #"all"
 work_dir: null
 
 model:
@@ -10,7 +10,7 @@ model:
 train:
   use_center_crop: false
   use_random_crop: false
-  normalize: false
+  normalize: true
   n_epochs: 30
   lr: 1.e-4
   batch_size: 256

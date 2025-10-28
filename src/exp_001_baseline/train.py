@@ -142,7 +142,8 @@ if __name__ == "__main__":
         n_epochs=n_epochs,
         batch_size=batch_size,
         lr=lr,
-        dataset_name=use_dataset
+        dataset_name=use_dataset,
+        device=device
     )
 
     min_loss = 1e10
