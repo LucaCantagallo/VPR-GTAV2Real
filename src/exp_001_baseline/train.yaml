@@ -1,5 +1,5 @@
 seed: 42
-dataset: "gta" #"gta" #"alderley" #"all"
+dataset: "all" #"gta" #"alderley" #"all"
 work_dir: null
 
 model:

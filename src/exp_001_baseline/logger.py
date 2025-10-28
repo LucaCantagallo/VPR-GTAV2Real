@@ -32,6 +32,9 @@ class ExperimentLogger:
             return True  # epoca corrente è la migliore
         return False
     
+    def set_total_time(self, total_time):
+        self.total_time = total_time
+    
     def save_summary(self):
         """Salva JSON strutturato e un file txt leggibile."""
         end_time = datetime.datetime.now()
