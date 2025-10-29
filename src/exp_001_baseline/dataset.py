@@ -94,7 +94,13 @@ class BaseDataset(Dataset):
                     crop = get_random_crop(image_tensor, [346, 260])  
                 elif "gta" in string_path:
                     crop = get_random_crop(image_tensor, [298, 224])
+                else:
+                    h, w = image_tensor.shape[1:]
+                    crop_h = min(298, h)
+                    crop_w = min(224, w)
+                    crop = get_random_crop(image_tensor, [crop_h, crop_w])
             image_tensor = crop_random(image_tensor, crop)
+
         image_tensor = functional.resize(image_tensor, (self.target_height, self.target_width))
         if self.normalize:
             image_tensor = functional.normalize(image_tensor, self.mean, self.std)

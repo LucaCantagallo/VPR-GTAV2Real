@@ -1,4 +1,4 @@
 seed: 42
 dataset: "gta"
-work_dir: "0"
+work_dir: "2"
 k: 50

@@ -132,13 +132,25 @@ if __name__ == "__main__":
     recall_night = compute_top_k_accuracy(cm_night, k_list)
 
     summary_path = os.path.join(work_dir, "final_evaluation.txt")
+    train_config_path = os.path.join(work_dir, "train.yaml")
+
+
     with open(summary_path, "w") as f:
         f.write(f"Final Evaluation Summary\n")
         f.write(f"Dataset: {dataset_name}\n")
         f.write(f"k: {k_eval}\n")
         f.write(f"Number of models evaluated: 1\n")
+        f.write(f"Number of query images evaluated: {cm_day.shape[0]} (each day/night)\n")
         for k in k_list:
             f.write(f"Top-{k} recall (day/night/avg): {recall_day[k]:.4f} / {recall_night[k]:.4f} / {(recall_day[k]+recall_night[k])/2:.4f}\n")
         f.write(f"Generated on: {datetime.now()}\n")
+        f.write("\n\n")
+        f.write("Information about the training process:\n")
+        if os.path.exists(train_config_path):
+            with open(train_config_path, "r") as train_file:
+                f.write(train_file.read())
+        else:
+            f.write("train.yaml not found.\n")
+
 
     print(f"Final evaluation summary saved to {summary_path}")
