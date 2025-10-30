@@ -5,7 +5,7 @@ work_dir: null
 model:
   name: "resnet50"
   trainable_from_layer: 7     
-  state_dict: "/home/lcantagallo/VPR-GTAV2Real/models/resnet50_places365.pth"  
+  state_dict: "/home/lcantagallo/VPR-GTAV2Real/myModels/resnet50_places365.pth"  
 
 train:
   use_center_crop: true       
@@ -16,3 +16,4 @@ train:
   batch_size: 128             
 
 train_samples_per_place: 10  
+valid_samples_per_place: 5

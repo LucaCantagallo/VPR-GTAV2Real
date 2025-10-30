@@ -25,8 +25,22 @@ def _get_model(name, state_dict=None):
         else:
             model = resnet50()
             model.fc = nn.Linear(2048, 365)
-            model.load_state_dict(torch.load(state_dict))
+            checkpoint = torch.load(state_dict, map_location="cpu")
+
+            # 🧹 Fix per Places365
+            if "state_dict" in checkpoint:
+                checkpoint = checkpoint["state_dict"]
+
+            # Rimuove eventuale prefisso "module."
+            new_state_dict = {}
+            for k, v in checkpoint.items():
+                new_k = k.replace("module.", "") if k.startswith("module.") else k
+                new_state_dict[new_k] = v
+
+            model.load_state_dict(new_state_dict, strict=False)
+
         return _get_resnet(model), 2048
+
 
 class BaseFeatureExtractor(nn.Module):
     def __init__(self, 
@@ -86,18 +100,27 @@ class MLPCosine(BaseFeatureExtractor):
     def __init__(self, 
                  model_name: str = "resnet50",
                  trainable_from_layer: str = None,
+                 state_dict: str = None,
                  device: str = "cpu",
                  **kwargs):
-        super(MLPCosine, self).__init__(model_name, trainable_from_layer, device)
+        super(MLPCosine, self).__init__(
+            model_name=model_name,
+            trainable_from_layer=trainable_from_layer,
+            state_dict=state_dict,
+            device=device,
+            **kwargs
+        )
         self.mlp = nn.Sequential(
             nn.Linear(self.output_dim, self.output_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(self.output_dim, self.output_dim)).to(device=device, non_blocking=True)
-        
+            nn.Linear(self.output_dim, self.output_dim)
+        ).to(device=device, non_blocking=True)
+
         self.to(device, non_blocking=True)
-        
+
     def forward(self, x):
         x = self.extract_features(x)
         x = self.mlp(x)
         return x
+
     

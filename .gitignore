@@ -2,4 +2,4 @@ dataset/
 .vscode/
 __pycache__/
 experiments/
-models/
+myModels/
