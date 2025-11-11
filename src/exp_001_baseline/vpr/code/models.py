@@ -64,7 +64,6 @@ class BaseFeatureExtractor(nn.Module):
         #self.trainable_part = nn.Sequential(self.trainable_part).to(device, non_blocking=True) if len(self.trainable_part) > 0 else None
 
         if len(self.freezed_part) > 0:
-            # Se è già un Sequential, non wrappare di nuovo
             if not isinstance(self.freezed_part, nn.Sequential):
                 self.freezed_part = nn.Sequential(OrderedDict(self.freezed_part))
             self.freezed_part = self.freezed_part.to(device, non_blocking=True)

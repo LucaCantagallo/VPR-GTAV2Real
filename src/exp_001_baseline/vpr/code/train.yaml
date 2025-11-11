@@ -1,19 +1,19 @@
 seed: 42
-dataset: "gta" #"gta" #"alderley" #
+dataset: "gta" #"gta" #"alderley" #"all"
 work_dir: null
 
 model:
   name: "resnet50"
-  trainable_from_layer: null # "all" #null
-  state_dict: "/home/lcantagallo/VPR-GTAV2Real/src/exp_001_baseline/places365/resnet50_places365/resnet50_places365.pth" #"../../places365/resnet50_places365/resnet50_places365.pth" #
+  trainable_from_layer: null
+  state_dict: null #"../../places365/resnet50_places365/resnet50_places365.pth" #
 
 train:
   use_center_crop: false
   use_random_crop: true
-  normalize: true
+  normalize: false
   n_epochs: 1
   lr: 1.e-4
   batch_size: 256
 
-train_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
-valid_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
+train_samples_per_place: -1 
+valid_samples_per_place: -1 

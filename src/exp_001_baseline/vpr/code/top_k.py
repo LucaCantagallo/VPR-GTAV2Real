@@ -22,7 +22,7 @@ if __name__ == "__main__":
     else:
         work_dir = os.path.join(base_path, params["work_dir"])
         
-    root = "/home/lcantagallo/VPR-GTAV2Real/src/exp_001_baseline/vpr/dataset/Tokyo247/Tokyo_24_7" #TODO change to the correct path
+    root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7"
     places = glob(os.path.join(root, "*"))
     places_names = [os.path.split(p)[-1].split(".")[0] for p in places]
     

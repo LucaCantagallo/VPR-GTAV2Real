@@ -62,11 +62,11 @@ if __name__ == "__main__":
     
     use_dataset = params["dataset"]
     
-    valid_size = 25
+    valid_size = 0
         
     
     if use_dataset == "gta" or use_dataset == "all":
-        gta_root = "/home/lcantagallo/VPR-GTAV2Real/src/exp_001_baseline/vpr/dataset/GTAV" #TODO change to the correct path
+        gta_root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/GTAV" 
         gta_places = glob(os.path.join(gta_root, "*"))
         gta_places = [glob(os.path.join(p, "*.jpg")) for p in gta_places]
         gta_day_places_pre = get_gta_places(gta_places, "d_s")
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             json_file.write(json_data)  
     
     if use_dataset == "alderley" or use_dataset == "all":
-        alderley_root = "/home/lcantagallo/VPR-GTAV2Real/src/exp_001_baseline/vpr/dataset/Alderley/alderley_paired" #TODO change to the correct path
+        alderley_root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Alderley/alderley_paired" 
         alderley_places = glob(os.path.join(alderley_root, "*"))
         alderley_places = [[alderley_places[i], alderley_places[i+1]] for i in range(len(alderley_places)) if i%2 == 0]
         
@@ -141,6 +141,7 @@ if __name__ == "__main__":
     if use_dataset == "gta" or use_dataset == "all":
         gta_train_paths, gta_valid_paths = np.asarray(gta_paths)[gta_train_indices], np.asarray(gta_paths)[gta_valid_indices]
         gta_train_triplets, gta_valid_triplets = get_triplets(gta_train_paths, train_samples_per_place), get_triplets(gta_valid_paths, valid_samples_per_place)
+    print(gta_train_triplets[:10])
 
     if use_dataset == "alderley" or use_dataset == "all":
         alderley_train_paths, alderley_valid_paths = np.asarray(alderley_places)[alderley_train_indices], np.asarray(alderley_places)[alderley_valid_indices]
@@ -186,12 +187,15 @@ if __name__ == "__main__":
                         device=device)
         
         writer.add_scalar("train/loss", train_loss, t)        
-        valid_loss = loop(model,
-                        valid_dataloader,
-                        loss_fn,
-                        optimizer=None,
-                        train=False,
-                        device=device)
+        if len(valid_dataloader.dataset) == 0:
+            valid_loss = 0.0
+        else:
+            valid_loss = loop(model,
+                            valid_dataloader,
+                            loss_fn,
+                            optimizer=None,
+                            train=False,
+                            device=device)
         
         writer.add_scalar("valid/loss", valid_loss, t)
         with open(os.path.join(work_dir, "training_log.txt"), "a") as log_file:

@@ -9,22 +9,20 @@ from itertools import permutations, combinations
 def get_triplets(paths, samples_per_place=-1, use_combination=False):
     triplets = []
     indices = []
-    for i, path in enumerate(paths): #list for each place
+    for i, path in enumerate(paths): 
         idx = np.arange(0, len(path))
         if use_combination:
             pair = list(map(list, combinations(idx, 2)))
         else:
             pair = list(map(list, permutations(idx, 2)))
         indices.append(pair)
-    
+
     for i, idx in enumerate(indices):
-        
         if samples_per_place > 0 and len(idx) > samples_per_place:
             positive_indices = np.random.choice(len(idx), samples_per_place, False)
             current_triplets = np.array(paths[i])[idx][positive_indices].tolist()
         else:
-            current_triplets = np.array(paths[i])[idx].tolist()
-            
+            current_triplets = np.array(paths[i])[idx].tolist()           
         for j, elem in enumerate(current_triplets):
             while True:
                 negative_idx = np.random.randint(0, len(paths))
@@ -34,8 +32,7 @@ def get_triplets(paths, samples_per_place=-1, use_combination=False):
                     else:
                         negative_sample_idx = np.random.randint(len(paths[negative_idx]))
                     elem.append(str(paths[negative_idx][negative_sample_idx]))
-                    break
-                
+                    break                
         triplets.extend(current_triplets)  
     return triplets
 
@@ -87,15 +84,15 @@ class BaseDataset(Dataset):
         image_tensor = functional.to_tensor(image)
         if self.use_center_crop:
             if "alderley" in string_path:
-                image_tensor = functional.center_crop(image_tensor, [346, 260]) # crop size for Alderley 
+                image_tensor = functional.center_crop(image_tensor, [346, 260])
             elif "GTAV" in string_path:
-                image_tensor = functional.center_crop(image_tensor, [298, 224]) # crop size for GTA 
+                image_tensor = functional.center_crop(image_tensor, [298, 224]) 
         if self.use_random_crop:
             if crop is None:
                 if "alderley" in string_path:
-                    crop = get_random_crop(image_tensor, [346, 260]) # crop size for Alderley 
+                    crop = get_random_crop(image_tensor, [346, 260]) 
                 elif "GTAV" in string_path:
-                    crop = get_random_crop(image_tensor, [298, 224]) # crop size for GTA 
+                    crop = get_random_crop(image_tensor, [298, 224])
             image_tensor = crop_random(image_tensor, crop)
         image_tensor = functional.resize(image_tensor, (self.target_height, self.target_width))
         if self.normalize:

@@ -39,13 +39,17 @@ if __name__ == "__main__":
         work_dir = os.path.join(base_path, str(n_folders))
 
     elif str(params["work_dir"]) == "-1":
-        # Prende l'ultimo elemento numerico dentro base_path
-        subfolders = sorted(
-            [f for f in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, f))]
-        )
+        subfolders = [
+            f for f in os.listdir(base_path)
+            if os.path.isdir(os.path.join(base_path, f)) and f.isdigit()
+        ]
         if not subfolders:
             raise ValueError(f"Nessuna sottocartella trovata in {base_path}")
+        
+        # Ordina numericamente invece che alfabeticamente
+        subfolders = sorted(subfolders, key=lambda x: int(x))
         work_dir = os.path.join(base_path, subfolders[-1])
+
 
     else:
         work_dir = os.path.join(base_path, str(params["work_dir"]))
@@ -54,7 +58,7 @@ if __name__ == "__main__":
         np.random.seed(seed)
         torch.manual_seed(seed)    
     
-    root = "/home/lcantagallo/VPR-GTAV2Real/src/exp_001_baseline/vpr/dataset/Tokyo247/Tokyo_24_7" #TODO change to the correct path
+    root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7" 
     places = sorted(glob(os.path.join(root, "*")))
     
     places = [places[i] for i in range(len(places)) if i % 3 == 0 or i % 3 == 2]
