@@ -61,6 +61,7 @@ if __name__ == "__main__":
     lr = params["train"]["lr"]  
     use_early_stopping = params["train"].get("early_stopping", False)
     patience = params["train"].get("patience", 0)
+    min_delta = float(params["train"].get("min_delta", 0.0))
  
     
     use_dataset = params["dataset"]
@@ -178,10 +179,10 @@ if __name__ == "__main__":
         
     writer = SummaryWriter(log_dir=work_dir)
     optimizer = torch.optim.Adam(model.parameters(), lr)
-    min_loss = 1e10  
     
     no_improve_counter = 0
     best_epoch = 0
+    min_loss = float("inf")
     epoch_history = []
 
     for t in range(n_epochs):
@@ -214,7 +215,7 @@ if __name__ == "__main__":
             "valid_loss": float(valid_loss)
         })
         
-        if valid_loss < min_loss:
+        if valid_loss < min_loss - min_delta:
             min_loss = valid_loss
             best_epoch = t + 1
             no_improve_counter = 0
