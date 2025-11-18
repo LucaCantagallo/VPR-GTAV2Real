@@ -1,0 +1,24 @@
+Il secondo esperimento è consistito nella sua prima fase nell'ottimizzazione del training in sè. Mantenendo gli stessi dati del precedente esperimento, ovvero:
+
+seed: 42
+dataset: "gta" #"gta" #"alderley" #
+work_dir: null
+
+model:
+  name: "resnet50"
+  trainable_from_layer: null
+  state_dict: null #"src/exp_002/places365/resnet50_places365/resnet50_places365.pth" #
+
+train:
+  use_center_crop: false
+  use_random_crop: true
+  normalize: false
+  n_epochs: 400
+  lr: 1.e-4
+  batch_size: 256
+
+
+train_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
+valid_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
+
+E applicando inizialmente l'early stopping, confrontandolo successivamente con il numero di epoche effettuate nell'esperimento precedente. Si evince che: ...

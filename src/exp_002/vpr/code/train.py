@@ -58,11 +58,14 @@ if __name__ == "__main__":
     
     n_epochs = params["train"]["n_epochs"]
     batch_size = params["train"]["batch_size"]
-    lr = params["train"]["lr"]   
+    lr = params["train"]["lr"]  
+    use_early_stopping = params["train"].get("early_stopping", False)
+    patience = params["train"].get("patience", 0)
+ 
     
     use_dataset = params["dataset"]
     
-    valid_size = 0
+    valid_size = 25
         
     
     if use_dataset == "gta" or use_dataset == "all":
@@ -176,6 +179,11 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir=work_dir)
     optimizer = torch.optim.Adam(model.parameters(), lr)
     min_loss = 1e10  
+    
+    no_improve_counter = 0
+    best_epoch = 0
+    epoch_history = []
+
     for t in range(n_epochs):
         print(f"Epoch {t+1}")
         train_loss = loop(model,
@@ -200,11 +208,24 @@ if __name__ == "__main__":
         with open(os.path.join(work_dir, "training_log.txt"), "a") as log_file:
             log_file.write(f"{t+1}\t{train_loss:.6f}\t{valid_loss:.6f}\n")
 
+        epoch_history.append({
+            "epoch": t + 1,
+            "train_loss": float(train_loss),
+            "valid_loss": float(valid_loss)
+        })
         
         if valid_loss < min_loss:
             min_loss = valid_loss
+            best_epoch = t + 1
+            no_improve_counter = 0
             torch.save(model.state_dict(), os.path.join(work_dir, "best_loss.pt"))
-        
+        else:
+            no_improve_counter += 1
+
+        if use_early_stopping and no_improve_counter >= patience:
+            print(f"Early stopping at epoch {t+1}")
+            break
+
         if use_dataset == "gta" or use_dataset == "all":
             gta_train_triplets, gta_valid_triplets = get_triplets(gta_train_paths, train_samples_per_place), get_triplets(gta_valid_paths, valid_samples_per_place)
         
@@ -223,5 +244,15 @@ if __name__ == "__main__":
         
         train_dataloader = build_dataset(train_triplets, params, True)
         valid_dataloader = build_dataset(valid_triplets, params, False)
-    
-    torch.save(model.state_dict(), os.path.join(work_dir, "end.pt"))
+
+    summary = {
+        "best_epoch": best_epoch,
+        "best_loss": float(min_loss),
+        "total_epochs": t + 1,
+        "early_stopping_used": use_early_stopping,
+        "patience": patience,
+        "epochs": epoch_history
+    }
+
+    with open(os.path.join(work_dir, "training_summary.json"), "w") as f:
+        json.dump(summary, f, indent=4)
