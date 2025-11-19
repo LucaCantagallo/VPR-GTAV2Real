@@ -41,5 +41,13 @@ def load_dataset(dataset_name):
         places = [[files[i], files[i+1]] for i in range(0, len(files) - (len(files) % 2), 2)]
         return places
 
+    elif dataset_name == "tokyo247":
+        root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7"
+        places = sorted(glob(os.path.join(root, "*")))
+        
+        places = [places[i] for i in range(len(places)) if i % 3 == 0 or i % 3 == 2]
+
+        return places
+
     else:
         raise ValueError(f"Dataset non gestito: {dataset_name}")

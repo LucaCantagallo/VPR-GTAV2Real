@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import TestDataset
 from models import MLPCosine
 from utils import load_params, get_n_folders
+from data_loader import load_dataset
 
 def test(features0, features1, cm, j, name):
     for i in range(len(features0)):
@@ -58,14 +59,9 @@ if __name__ == "__main__":
         np.random.seed(seed)
         torch.manual_seed(seed)    
     
-    root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7" #TODO change to the correct path
-    places = sorted(glob(os.path.join(root, "*")))
+    test_places = load_dataset(params["test_dataset"])
     
-    places = [places[i] for i in range(len(places)) if i % 3 == 0 or i % 3 == 2]
-
-    #print(places[:100])
-    
-    dataset = TestDataset(places)
+    dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
     
     model = MLPCosine()
@@ -91,8 +87,8 @@ if __name__ == "__main__":
         day_features = features[::2]
         night_features = features[1::2]
         
-        cm_day = np.zeros((len(places) // 2, len(places) // 2))
-        cm_night = np.zeros((len(places) // 2, len(places) // 2))
+        cm_day = np.zeros((len(test_places) // 2, len(test_places) // 2))
+        cm_night = np.zeros((len(test_places) // 2, len(test_places) // 2))
         
         test(day_features, night_features, cm_day, j, "day")
         test(night_features, day_features, cm_night, j, "night")   

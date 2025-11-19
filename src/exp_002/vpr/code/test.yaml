@@ -1,3 +1,4 @@
 seed: 42
 dataset: "run"
+test_dataset: "tokyo247"
 work_dir: "-1"
