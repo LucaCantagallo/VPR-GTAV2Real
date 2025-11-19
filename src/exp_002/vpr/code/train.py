@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from torchmetrics.functional import accuracy
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from loop import loop
 
@@ -62,6 +63,9 @@ if __name__ == "__main__":
     use_early_stopping = params["train"].get("early_stopping", False)
     patience = params["train"].get("patience", 0)
     min_delta = float(params["train"].get("min_delta", 0.0))
+    weight_decay = params["train"].get("weight_decay", 0.0)
+    use_reduce_on_plateau = params["train"].get("reduce_lr_on_plateau", False)
+    opt_name = params["train"].get("optimizer", "adamw").lower()
  
     
     use_dataset = params["dataset"]
@@ -178,7 +182,23 @@ if __name__ == "__main__":
     loss_fn = nn.TripletMarginWithDistanceLoss(distance_function=distance_function)
         
     writer = SummaryWriter(log_dir=work_dir)
-    optimizer = torch.optim.Adam(model.parameters(), lr)
+    if opt_name == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    else:   #memo: default "adam"
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+
+    use_reduce_lr = use_reduce_on_plateau
+    if use_reduce_lr:
+        scheduler = ReduceLROnPlateau(
+            optimizer, 
+            mode='min', 
+            factor=params["train"].get("lr_factor", 0.5), 
+            patience=params["train"].get("lr_patience", 5), 
+            min_lr=params["train"].get("lr_min", 1.e-6), 
+            verbose=True
+        )
+    
     
     no_improve_counter = 0
     best_epoch = 0
@@ -209,10 +229,16 @@ if __name__ == "__main__":
         with open(os.path.join(work_dir, "training_log.txt"), "a") as log_file:
             log_file.write(f"{t+1}\t{train_loss:.6f}\t{valid_loss:.6f}\n")
 
+        if use_reduce_lr:
+            scheduler.step(valid_loss)
+            with open(os.path.join(work_dir, "training_log.txt"), "a") as log_file:
+                log_file.write(f"lr_epoch_{t+1}: {optimizer.param_groups[0]['lr']}\n")
+
         epoch_history.append({
             "epoch": t + 1,
             "train_loss": float(train_loss),
-            "valid_loss": float(valid_loss)
+            "valid_loss": float(valid_loss),
+            "lr": optimizer.param_groups[0]['lr']
         })
         
         if valid_loss < min_loss - min_delta:
