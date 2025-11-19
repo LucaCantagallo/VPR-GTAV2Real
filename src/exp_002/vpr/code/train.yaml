@@ -1,5 +1,6 @@
 seed: 42
-dataset: "gta" #"gta" #"alderley" #
+train_dataset: "gta"
+val_dataset: "alderley"
 work_dir: null
 
 model:

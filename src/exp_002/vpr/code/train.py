@@ -1,5 +1,3 @@
-##train.py
-
 import os
 import torch
 from torch import nn
@@ -40,11 +38,11 @@ if __name__ == "__main__":
     config_file = "./train.yaml"
     params = load_params(config_file)
     
-    base_path = os.path.join(experiments_dir, params["dataset"])
+    base_path = os.path.join(experiments_dir, params.get("dataset", "run"))
     if not os.path.exists(base_path):
         os.makedirs(base_path)
         
-    if params["work_dir"] is None:
+    if params.get("work_dir", None) is None:
         n_folders = get_n_folders(base_path)
         work_dir = os.path.join(base_path, str(n_folders))
         os.makedirs(work_dir)
@@ -67,13 +65,12 @@ if __name__ == "__main__":
     use_reduce_on_plateau = params["train"].get("reduce_lr_on_plateau", False)
     opt_name = params["train"].get("optimizer", "adamw").lower()
  
-    
-    use_dataset = params["dataset"]
-    
-    valid_size = 25
+    # --- read new config fields (expect train_dataset and val_dataset at top-level of YAML)
+    train_dataset = params["train_dataset"]
+    val_dataset = params["val_dataset"]
         
-    
-    if use_dataset == "gta" or use_dataset == "all":
+    # --- prepare GTA if any side needs it (train or val)
+    if train_dataset == "gta" or val_dataset == "gta":
         gta_root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/GTAV" #TODO change to the correct path
         gta_places = glob(os.path.join(gta_root, "*"))
         gta_places = [glob(os.path.join(p, "*.jpg")) for p in gta_places]
@@ -92,82 +89,89 @@ if __name__ == "__main__":
 
         gta_paths = [[gta_day_places[i][0], gta_night_places[i][np.random.randint(0, len(gta_night_places[i]))]] for i in range(len(gta_day_places))]
 
-        gta_dataset_indices = np.arange(0, len(gta_paths))#np.arange(0, len(places))
+        gta_dataset_indices = np.arange(0, len(gta_paths))
         
-        # per val = 0
+        # GTA: tutto in train
+        gta_train_indices = gta_dataset_indices
+        gta_valid_indices = []  
 
-        if valid_size == 0:
-            gta_train_indices, gta_valid_indices = gta_dataset_indices, []
-        else:
-            gta_train_indices, gta_valid_indices = train_test_split(
-                gta_dataset_indices, test_size=valid_size, random_state=seed
-            )
 
         gta_train_indices = np.array(gta_train_indices, dtype=int)
         gta_valid_indices = np.array(gta_valid_indices, dtype=int)
-
-        #fine val = 0
         
-        print(f"dataset split: {len(gta_train_indices)}, {len(gta_valid_indices)}")
+        print(f"GTA dataset split: {len(gta_train_indices)} train, {len(gta_valid_indices)} valid")
         dataset_to_save = {"train_idx": gta_train_indices.tolist(), "valid_idx": gta_valid_indices.tolist()}
-        json_data = json.dumps(dataset_to_save)
-        
-        # Save JSON data to a file
         with open(os.path.join(work_dir, "gta_dataset.json"), "w") as json_file:
-            json_file.write(json_data)  
+            json.dump(dataset_to_save, json_file)
     
-    if use_dataset == "alderley" or use_dataset == "all":
-        alderley_root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Alderley/alderley_paired" #TODO change to the correct path
-        alderley_places = glob(os.path.join(alderley_root, "*"))
-        alderley_places = [[alderley_places[i], alderley_places[i+1]] for i in range(len(alderley_places)) if i%2 == 0]
-        
-        alderley_dataset_indices = np.arange(0, len(alderley_places))#np.arange(0, len(places))
-        
-        if valid_size == 0:
-            alderley_train_indices, alderley_valid_indices = alderley_dataset_indices, []
-        else:
-            alderley_train_indices, alderley_valid_indices = train_test_split(
-                alderley_dataset_indices, test_size=valid_size, random_state=seed
-            )
+    # --- prepare Alderley if any side needs it (train or val)
+    if train_dataset == "alderley" or val_dataset == "alderley":
+        alderley_root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Alderley/alderley_paired"
+
+        # sorted per evitare spaiamenti
+        alderley_files = sorted(glob(os.path.join(alderley_root, "*.png")))
+
+        # pairing 0–1, 2–3, 4–5...
+        alderley_places = [
+            [alderley_files[i], alderley_files[i+1]]
+            for i in range(0, len(alderley_files) - (len(alderley_files) % 2), 2)
+        ]
+
+        alderley_dataset_indices = np.arange(0, len(alderley_places))
+
+        # Alderley: tutto in valid
+        alderley_train_indices = []  # niente train per Alderley
+        alderley_valid_indices = alderley_dataset_indices
 
         alderley_train_indices = np.array(alderley_train_indices, dtype=int)
         alderley_valid_indices = np.array(alderley_valid_indices, dtype=int)
 
-        
-        print(f"dataset split: {len(alderley_train_indices)}, {len(alderley_valid_indices)}")
+        print(f"Alderley dataset split: {len(alderley_train_indices)} train, {len(alderley_valid_indices)} valid")
         dataset_to_save = {"train_idx": alderley_train_indices.tolist(), "valid_idx": alderley_valid_indices.tolist()}
-        json_data = json.dumps(dataset_to_save)
-        
-        # Save JSON data to a file
         with open(os.path.join(work_dir, "alderley_dataset.json"), "w") as json_file:
-            json_file.write(json_data)
-    
-    
+            json.dump(dataset_to_save, json_file)
+
+    # --- sample counts
     train_samples_per_place = params["train_samples_per_place"]
     valid_samples_per_place = params["valid_samples_per_place"]
     
-    if use_dataset == "gta" or use_dataset == "all":
-        gta_train_paths, gta_valid_paths = np.asarray(gta_paths)[gta_train_indices], np.asarray(gta_paths)[gta_valid_indices]
-        gta_train_triplets, gta_valid_triplets = get_triplets(gta_train_paths, train_samples_per_place), get_triplets(gta_valid_paths, valid_samples_per_place)
+    # --- build paths -> triplets only for datasets that were prepared above
+    if 'gta_paths' in locals():
+        gta_train_paths = np.asarray(gta_paths)[gta_train_indices] if len(gta_train_indices) > 0 else np.array([])
+        gta_valid_paths = np.asarray(gta_paths)[gta_valid_indices] if len(gta_valid_indices) > 0 else np.array([])
+        gta_train_triplets = get_triplets(gta_train_paths, train_samples_per_place) if len(gta_train_paths) > 0 else []
+        gta_valid_triplets = get_triplets(gta_valid_paths, valid_samples_per_place) if len(gta_valid_paths) > 0 else []
+    else:
+        gta_train_paths = gta_valid_paths = np.array([])
+        gta_train_triplets = gta_valid_triplets = []
 
-    if use_dataset == "alderley" or use_dataset == "all":
-        alderley_train_paths, alderley_valid_paths = np.asarray(alderley_places)[alderley_train_indices], np.asarray(alderley_places)[alderley_valid_indices]
-        alderley_train_triplets, alderley_valid_triplets = get_triplets(alderley_train_paths, train_samples_per_place), get_triplets(alderley_valid_paths, valid_samples_per_place)
+    if 'alderley_places' in locals():
+        alderley_train_paths = np.asarray(alderley_places)[alderley_train_indices] if len(alderley_train_indices) > 0 else np.array([])
+        alderley_valid_paths = np.asarray(alderley_places)[alderley_valid_indices] if len(alderley_valid_indices) > 0 else np.array([])
+        alderley_train_triplets = get_triplets(alderley_train_paths, train_samples_per_place) if len(alderley_train_paths) > 0 else []
+        alderley_valid_triplets = get_triplets(alderley_valid_paths, valid_samples_per_place) if len(alderley_valid_paths) > 0 else []
+    else:
+        alderley_train_paths = alderley_valid_paths = np.array([])
+        alderley_train_triplets = alderley_valid_triplets = []
     
-    if use_dataset == "gta":
+    # --- choose train/valid triplets according to config
+    train_triplets = []
+    valid_triplets = []
+
+    if train_dataset == "gta":
         train_triplets = gta_train_triplets
-        valid_triplets = gta_valid_triplets
-    elif use_dataset == "alderley":
+    elif train_dataset == "alderley":
         train_triplets = alderley_train_triplets
+
+    if val_dataset == "gta":
+        valid_triplets = gta_valid_triplets
+    elif val_dataset == "alderley":
         valid_triplets = alderley_valid_triplets
-    elif use_dataset == "all":
-        train_triplets = [*gta_train_triplets, *alderley_train_triplets]
-        valid_triplets = [*gta_valid_triplets, *alderley_valid_triplets]        
         
     train_dataloader = build_dataset(train_triplets, params, True)
     valid_dataloader = build_dataset(valid_triplets, params, False)    
     
-   
+    # --- model + training setup
     model = MLPCosine(device=device, **params["model"])
 
     num_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -253,22 +257,26 @@ if __name__ == "__main__":
             print(f"Early stopping at epoch {t+1}")
             break
 
-        if use_dataset == "gta" or use_dataset == "all":
-            gta_train_triplets, gta_valid_triplets = get_triplets(gta_train_paths, train_samples_per_place), get_triplets(gta_valid_paths, valid_samples_per_place)
+        # --- recompute triplets each epoch for datasets in use (keeps original behavior)
+        if 'gta_paths' in locals():
+            gta_train_triplets = get_triplets(gta_train_paths, train_samples_per_place) if len(gta_train_paths) > 0 else []
+            gta_valid_triplets = get_triplets(gta_valid_paths, valid_samples_per_place) if len(gta_valid_paths) > 0 else []
         
-        if use_dataset == "alderley" or use_dataset == "all":
-            alderley_train_triplets, alderley_valid_triplets = get_triplets(alderley_train_paths, train_samples_per_place), get_triplets(alderley_valid_paths, valid_samples_per_place)
+        if 'alderley_places' in locals():
+            alderley_train_triplets = get_triplets(alderley_train_paths, train_samples_per_place) if len(alderley_train_paths) > 0 else []
+            alderley_valid_triplets = get_triplets(alderley_valid_paths, valid_samples_per_place) if len(alderley_valid_paths) > 0 else []
         
-        if use_dataset == "gta":
+        # --- set train/valid triplets according to config
+        if train_dataset == "gta":
             train_triplets = gta_train_triplets
-            valid_triplets = gta_valid_triplets
-        elif use_dataset == "alderley":
+        elif train_dataset == "alderley":
             train_triplets = alderley_train_triplets
+
+        if val_dataset == "gta":
+            valid_triplets = gta_valid_triplets
+        elif val_dataset == "alderley":
             valid_triplets = alderley_valid_triplets
-        elif use_dataset == "all":
-            train_triplets = [*gta_train_triplets, *alderley_train_triplets]
-            valid_triplets = [*gta_valid_triplets, *alderley_valid_triplets] 
-        
+
         train_dataloader = build_dataset(train_triplets, params, True)
         valid_dataloader = build_dataset(valid_triplets, params, False)
 
