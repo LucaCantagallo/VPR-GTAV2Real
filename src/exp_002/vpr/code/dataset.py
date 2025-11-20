@@ -101,4 +101,8 @@ class TriCombinationDataset(BaseDataset):
 
 class TestDataset(BaseDataset):
     def __getitem__(self, index):
-        return self.__load__(self.paths[index])[0]
+        path_pair = self.paths[index]  # [file0, file1]
+        img0, _ = self.__load__(path_pair[0])
+        img1, _ = self.__load__(path_pair[1])
+        return img0, img1
+

@@ -12,14 +12,14 @@ from utils import get_n_folders, load_params
 
 if __name__ == "__main__":    
     experiments_dir = "./experiments" 
-    config_file = "./recall.yaml"
+    config_file = "./pipeline.yaml"
     params = load_params(config_file)
     
-    base_path = os.path.join(experiments_dir, params["dataset"])
-    if params["work_dir"] is None:
+    base_path = os.path.join(experiments_dir, params["save_dir"])
+    if params["experiment"] is None:
         n_folders = get_n_folders(base_path)
         work_dir = os.path.join(base_path, str(n_folders))
-    elif str(params["work_dir"]) == "-1":
+    elif str(params["experiment"]) == "-1":
         # Prende l'ultimo elemento numerico dentro base_path (ordinamento numerico corretto)
         subfolders = [
             f for f in os.listdir(base_path)
@@ -32,14 +32,14 @@ if __name__ == "__main__":
         subfolders = sorted(subfolders, key=lambda x: int(x))
         work_dir = os.path.join(base_path, subfolders[-1])
     else:
-        work_dir = os.path.join(base_path, params["work_dir"])
+        work_dir = os.path.join(base_path, params["experiment"])
         
     root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7"
     places = glob(os.path.join(root, "*"))
     places_names = [os.path.split(p)[-1].split(".")[0] for p in places]
     
     matrix_paths = glob(os.path.join(work_dir, "cm_*.txt"))  
-    k = params["k"]
+    k = params["evaluation"].get("k")
     
     for path in matrix_paths:
         matrix = np.loadtxt(path)

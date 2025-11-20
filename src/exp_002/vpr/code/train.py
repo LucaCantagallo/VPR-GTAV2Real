@@ -1,3 +1,5 @@
+## train.py
+
 import os
 import torch
 from torch import nn
@@ -33,7 +35,7 @@ if __name__ == "__main__":
     print(f"Using {device} device")
 
     experiments_dir = "./experiments"
-    config_file = "./train.yaml"
+    config_file = "./pipeline.yaml"
     params = load_params(config_file)
 
     base_path = os.path.join(experiments_dir, params.get("dataset", "run"))

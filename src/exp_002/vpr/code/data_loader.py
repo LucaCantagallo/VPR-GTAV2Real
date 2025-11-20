@@ -1,3 +1,5 @@
+## data_loader.py
+
 import os
 from glob import glob
 import numpy as np
@@ -43,11 +45,12 @@ def load_dataset(dataset_name):
 
     elif dataset_name == "tokyo247":
         root = "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7"
-        places = sorted(glob(os.path.join(root, "*")))
-        
-        places = [places[i] for i in range(len(places)) if i % 3 == 0 or i % 3 == 2]
+        files = sorted(glob(os.path.join(root, "*")))
 
+        # costruisci le coppie [day, night] ignorando la sera (y)
+        places = [[files[i], files[i+2]] for i in range(0, len(files) - 2, 3)]
         return places
+
 
     else:
         raise ValueError(f"Dataset non gestito: {dataset_name}")
