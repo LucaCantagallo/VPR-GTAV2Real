@@ -34,6 +34,15 @@ def load_dataset(dataset_name):
             idx = np.random.choice(len(place), 2, replace=False)
             pairs.append([place[idx[0]], place[idx[1]]])
         return pairs
+    
+    elif dataset_name == "gsv":
+        places = extract_places(dataset_name, percentage=0.05)
+        for place in places:
+            if len(place) < 2:
+                continue
+            idx = np.random.choice(len(place), 2, replace=False)
+            pairs.append([place[idx[0]], place[idx[1]]])
+        return pairs
 
     else:
         raise ValueError(f"Dataset non gestito: {dataset_name}")

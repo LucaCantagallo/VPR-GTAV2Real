@@ -1,6 +1,6 @@
 seed: 42
 
-dataload: "daynight"
+dataload: "vpr"
 
 train_dataset: "gta"
 val_dataset: "alderley"
