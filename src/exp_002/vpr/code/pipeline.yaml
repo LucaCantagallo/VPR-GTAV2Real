@@ -1,5 +1,7 @@
 seed: 42
 
+dataload: "daynight"
+
 train_dataset: "gta"
 val_dataset: "alderley"
 test_dataset: "tokyo247"
@@ -18,7 +20,7 @@ train:
   use_center_crop: false
   use_random_crop: true
   normalize: false
-  n_epochs: 400
+  n_epochs: 1
   lr: 1.e-4
   batch_size: 256
 

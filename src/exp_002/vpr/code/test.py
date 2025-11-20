@@ -14,7 +14,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import TestDataset
 from models import MLPCosine
 from utils import load_params, get_n_folders
-from data_loader import load_dataset
 
 def compute_cm(features0, features1, cm, j, name):
     for i in range(len(features0)):
@@ -29,6 +28,15 @@ if __name__ == "__main__":
     experiments_dir = "./experiments"
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
+
+    if params["dataload"] == "daynight":
+        from data_loader_daynight import load_dataset
+    elif params["dataload"] == "vpr":
+        from data_loader_vpr import load_dataset
+    else:
+        raise ValueError(f"Dataload {params['dataload']} non supportato")
+
+
     base_path = os.path.join(experiments_dir, params["save_dir"])
 
     # Determina la cartella di lavoro

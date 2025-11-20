@@ -16,10 +16,13 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from loop import loop
 from dataset import get_triplets, TriCombinationDataset
 from models import MLPCosine
-from data_loader import load_dataset
+
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from utils import get_n_folders, load_params
+
+
+
 
 def build_dataset(triplets, params, shuffle=False):
     dataset = TriCombinationDataset(triplets, 
@@ -37,6 +40,14 @@ if __name__ == "__main__":
     experiments_dir = "./experiments"
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
+
+    if params["dataload"] == "daynight":
+        from data_loader_daynight import load_dataset
+    elif params["dataload"] == "vpr":
+        from data_loader_vpr import load_dataset
+    else:
+        raise ValueError(f"Dataload {params['dataload']} non supportato")
+
 
     base_path = os.path.join(experiments_dir, params.get("dataset", "run"))
     os.makedirs(base_path, exist_ok=True)
