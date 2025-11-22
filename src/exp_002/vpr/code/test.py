@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import TestDataset
 from models import MLPCosine
 from utils import load_params, get_n_folders
+from data_loader import dataload
 
 def compute_cm(features0, features1, cm, j, name):
     for i in range(len(features0)):
@@ -29,12 +30,7 @@ if __name__ == "__main__":
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
 
-    if params["dataload"] == "daynight":
-        from data_loader_daynight import load_dataset
-    elif params["dataload"] == "vpr":
-        from data_loader_vpr import load_dataset
-    else:
-        raise ValueError(f"Dataload {params['dataload']} non supportato")
+    
 
 
     base_path = os.path.join(experiments_dir, params["save_dir"])
@@ -58,7 +54,9 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
 
     # Dataset e dataloader
-    test_places = load_dataset(params["test_dataset"])
+    dataload_mode = params["dataload"]
+    test_dataset = params["test_dataset"]
+    test_places = dataload(dataload_mode, test_dataset)
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 

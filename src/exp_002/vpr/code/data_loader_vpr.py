@@ -2,7 +2,7 @@
 from places_extractor import extract_places
 import numpy as np
 
-def load_dataset(dataset_name):
+def load_vpr(dataset_name):
     dataset_name = dataset_name.lower()
     
 

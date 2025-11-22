@@ -16,6 +16,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from loop import loop
 from dataset import get_triplets, TriCombinationDataset
 from models import MLPCosine
+from data_loader import dataload
+
 
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -41,14 +43,6 @@ if __name__ == "__main__":
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
 
-    if params["dataload"] == "daynight":
-        from data_loader_daynight import load_dataset
-    elif params["dataload"] == "vpr":
-        from data_loader_vpr import load_dataset
-    else:
-        raise ValueError(f"Dataload {params['dataload']} non supportato")
-
-
     base_path = os.path.join(experiments_dir, params.get("dataset", "run"))
     os.makedirs(base_path, exist_ok=True)
         
@@ -71,11 +65,11 @@ if __name__ == "__main__":
     
     train_dataset = params["train_dataset"]
     val_dataset = params["val_dataset"]
+    dataload_mode = params["dataload"]
 
     # --- carica dataset completo tramite data_loader.py (lista di places)
-    train_places = load_dataset(train_dataset)
-    valid_places = load_dataset(val_dataset)
-
+    train_places = dataload(dataload_mode, train_dataset)
+    valid_places = dataload(dataload_mode, val_dataset)
     # --- se sono lo stesso dataset, fai split 75/25 a livello di PLACE
     if train_dataset == val_dataset:
         # split in modo deterministico basato sul seed
