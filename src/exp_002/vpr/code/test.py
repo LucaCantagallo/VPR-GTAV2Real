@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import TestDataset
 from models import MLPCosine
 from utils import load_params, get_n_folders
-from data_loader import dataload
+from data_loader import dataload_paired
 
 def compute_cm(features0, features1, cm, j, name):
     for i in range(len(features0)):
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # Dataset e dataloader
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
-    test_places = dataload(dataload_mode, test_dataset)
+    test_places = dataload_paired(dataload_mode, test_dataset)
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 

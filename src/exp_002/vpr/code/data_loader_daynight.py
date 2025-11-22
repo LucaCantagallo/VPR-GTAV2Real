@@ -3,7 +3,7 @@ from places_extractor import extract_places
 from utils import get_gta_places
 import numpy as np
 
-def load_daynight(dataset_name):
+def load_paired_daynight(dataset_name):
     dataset_name = dataset_name.lower()
     
 

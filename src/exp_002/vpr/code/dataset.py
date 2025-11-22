@@ -6,37 +6,6 @@ from torch.utils.data import Dataset
 from torchvision.transforms import functional
 from itertools import permutations, combinations
 
-def get_triplets(paths, samples_per_place=-1, use_combination=False):
-    triplets = []
-    indices = []
-    for i, path in enumerate(paths):
-        idx = np.arange(0, len(path))
-        if use_combination:
-            pair = list(map(list, combinations(idx, 2)))
-        else:
-            pair = list(map(list, permutations(idx, 2)))
-        indices.append(pair)
-
-    for i, idx in enumerate(indices):
-        if samples_per_place > 0 and len(idx) > samples_per_place:
-            positive_indices = np.random.choice(len(idx), samples_per_place, False)
-            current_triplets = np.array(paths[i])[idx][positive_indices].tolist()
-        else:
-            current_triplets = np.array(paths[i])[idx].tolist()
-        
-        for j, elem in enumerate(current_triplets):
-            while True:
-                negative_idx = np.random.randint(0, len(paths))
-                if negative_idx != i:
-                    if len(idx) == 2:
-                        negative_sample_idx = idx[j][1]
-                    else:
-                        negative_sample_idx = np.random.randint(len(paths[negative_idx]))
-                    elem.append(str(paths[negative_idx][negative_sample_idx]))
-                    break
-        triplets.extend(current_triplets)
-    return triplets
-
 def get_random_crop(image, crop_size):
     c, h, w = image.shape
     th, tw = crop_size
@@ -90,14 +59,6 @@ class BaseDataset(Dataset):
         if self.normalize:
             image_tensor = functional.normalize(image_tensor, self.mean, self.std)
         return image_tensor, crop
-
-class TriCombinationDataset(BaseDataset):
-    def __getitem__(self, index):
-        paths = self.paths[index]
-        anchor, crop = self.__load__(paths[0])
-        positive, _ = self.__load__(paths[1], crop)
-        negative, _ = self.__load__(paths[2])
-        return anchor, positive, negative
 
 class TestDataset(BaseDataset):
     def __getitem__(self, index):
