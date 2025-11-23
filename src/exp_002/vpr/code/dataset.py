@@ -60,10 +60,5 @@ class BaseDataset(Dataset):
             image_tensor = functional.normalize(image_tensor, self.mean, self.std)
         return image_tensor, crop
 
-class TestDataset(BaseDataset):
-    def __getitem__(self, index):
-        path_pair = self.paths[index]  # [file0, file1]
-        img0, _ = self.__load__(path_pair[0])
-        img1, _ = self.__load__(path_pair[1])
-        return img0, img1
+
 

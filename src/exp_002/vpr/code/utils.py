@@ -23,7 +23,4 @@ def get_n_folders(root):
 def unroll(l):
     return [e for j in l for e in j]
 
-def get_gta_places(paths, weather):
-    return [[l for l in p if weather in l] for p in paths]
-
 

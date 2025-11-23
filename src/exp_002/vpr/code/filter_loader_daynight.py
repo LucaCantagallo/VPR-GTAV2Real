@@ -1,16 +1,13 @@
 # data_loader_daynight.py
-from places_extractor import extract_places
-from utils import get_gta_places
 import numpy as np
 
-def load_paired_daynight(dataset_name):
+def filter_paired_daynight(dataset_name, places):
     dataset_name = dataset_name.lower()
     
 
     if dataset_name == "gta":
-        places = extract_places(dataset_name)
-        day_pre = get_gta_places(places, "d_s")
-        night_pre = get_gta_places(places, "n_c")
+        day_pre = _get_gta_places(places, "d_s")
+        night_pre = _get_gta_places(places, "n_c")
 
         day_places = []
         night_places = []
@@ -24,12 +21,13 @@ def load_paired_daynight(dataset_name):
         return places
 
     elif dataset_name == "alderley":
-        places = extract_places(dataset_name)
         return places
 
     elif dataset_name == "tokyo247":
-        places = extract_places(dataset_name)
         return [[p[0], p[2]] for p in places]
 
     else:
         raise ValueError(f"Dataset non gestito: {dataset_name}")
+    
+def _get_gta_places(paths, weather):
+    return [[l for l in p if weather in l] for p in paths]

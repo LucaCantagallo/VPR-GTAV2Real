@@ -1,15 +1,13 @@
-# data_loader_vpr.py
-from places_extractor import extract_places
+# filter_loader_vpr.py
 import numpy as np
 
-def load_paired_vpr(dataset_name):
+def filter_paired_vpr(dataset_name, places):
     dataset_name = dataset_name.lower()
     
 
     pairs = []
 
     if dataset_name == "gta":
-        places = extract_places(dataset_name)
         for place in places:
             if len(place) < 2:
                 continue
@@ -18,7 +16,6 @@ def load_paired_vpr(dataset_name):
         return pairs
 
     elif dataset_name == "alderley":
-        places = extract_places(dataset_name)
         for place in places:
             if len(place) < 2:
                 continue
@@ -27,7 +24,6 @@ def load_paired_vpr(dataset_name):
         return pairs
 
     elif dataset_name == "tokyo247":
-        places = extract_places(dataset_name)
         for place in places:
             if len(place) < 2:
                 continue
@@ -36,7 +32,6 @@ def load_paired_vpr(dataset_name):
         return pairs
     
     elif dataset_name == "gsv":
-        places = extract_places(dataset_name, percentage=0.05)
         for place in places:
             if len(place) < 2:
                 continue

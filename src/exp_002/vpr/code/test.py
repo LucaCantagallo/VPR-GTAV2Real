@@ -10,11 +10,21 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import sys
+
+from filter_loader_vpr import filter_paired_vpr
+from filter_loader_daynight import filter_paired_daynight
+from places_extractor import extract_places
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from dataset import TestDataset
+from dataset import BaseDataset
 from models import MLPCosine
 from utils import load_params, get_n_folders
-from data_loader import dataload_paired
+
+class TestDataset(BaseDataset):
+    def __getitem__(self, index):
+        path_pair = self.paths[index]  # [file0, file1]
+        img0, _ = self.__load__(path_pair[0])
+        img1, _ = self.__load__(path_pair[1])
+        return img0, img1
 
 def compute_cm(features0, features1, cm, j, name):
     for i in range(len(features0)):
@@ -56,7 +66,17 @@ if __name__ == "__main__":
     # Dataset e dataloader
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
-    test_places = dataload_paired(dataload_mode, test_dataset)
+    if test_dataset == "gsv":
+        test_places = extract_places(test_dataset, percentage=0.05)
+    else:
+        test_places = extract_places(test_dataset)
+
+    if dataload_mode == "daynight":
+        test_places = filter_paired_daynight(test_dataset, test_places)
+    else:
+        test_places = filter_paired_vpr(test_dataset, test_places)
+
+
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 
@@ -98,3 +118,6 @@ if __name__ == "__main__":
 
         compute_cm(features0, features1, cm0, j, "feat0")
         compute_cm(features1, features0, cm1, j, "feat1")
+
+
+

@@ -1,4 +1,4 @@
-from data_loader import dataload_paired
+
 import numpy as np
 from sklearn.model_selection import train_test_split
 from itertools import permutations, combinations
@@ -7,6 +7,9 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from places_extractor import extract_places
+from filter_loader_daynight import filter_paired_daynight
 
 # --- pubblica: restituisce DataLoader pronti per training/validazione
 def get_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per_place, valid_samples_per_place, params, seed):
@@ -55,48 +58,56 @@ def get_triplet_loss():
 
 # --- private
 def _load_and_split(dataload_mode, train_dataset, val_dataset, seed):
-    train_places_paired = dataload_paired(dataload_mode, train_dataset)
-    valid_places_paired = dataload_paired(dataload_mode, val_dataset)
-    
+    train_places = extract_places(train_dataset)
+    valid_places = extract_places(val_dataset)
+    if dataload_mode == "daynight":
+        train_places = filter_paired_daynight(train_dataset, train_places)
+        valid_places = filter_paired_daynight(val_dataset, valid_places)
+ 
     if train_dataset == val_dataset:
-        indices = np.arange(len(train_places_paired))
+        indices = np.arange(len(train_places))
         train_idx, valid_idx = train_test_split(indices, test_size=0.25, random_state=seed, shuffle=True)
-        train_places_paired = [train_places_paired[i] for i in train_idx]
-        valid_places_paired = [valid_places_paired[i] for i in valid_idx]
+        train_places = [train_places[i] for i in train_idx]
+        valid_places = [valid_places[i] for i in valid_idx]
     
-    return train_places_paired, valid_places_paired
+    return train_places, valid_places
 
 
 def _generate_triplets(places, samples_per_place=-1, use_combination=False):
     triplets = []
-    indices = []
-    for i, path in enumerate(places):
-        idx = np.arange(len(path))
+
+    for place_idx, place_images in enumerate(places):
+        num_images = len(place_images)
+        if num_images < 2:
+            continue
+
+        # genera tutte le coppie anchor-positive
         if use_combination:
-            pair = list(map(list, combinations(idx, 2)))
+            pairs_idx = list(combinations(range(num_images), 2))
         else:
-            pair = list(map(list, permutations(idx, 2)))
-        indices.append(pair)
+            pairs_idx = list(permutations(range(num_images), 2))
 
-    for i, idx in enumerate(indices):
-        if samples_per_place > 0 and len(idx) > samples_per_place:
-            selected = np.random.choice(len(idx), samples_per_place, False)
-            current_triplets = np.array(places[i])[idx][selected].tolist()
-        else:
-            current_triplets = np.array(places[i])[idx].tolist()
+        # campiona un sottoinsieme se richiesto
+        if samples_per_place > 0 and len(pairs_idx) > samples_per_place:
+            selected_idx = np.random.choice(len(pairs_idx), samples_per_place, replace=False)
+            pairs_idx = [pairs_idx[i] for i in selected_idx]
 
-        for j, elem in enumerate(current_triplets):
+        # crea le triplette aggiungendo negative
+        for anchor_idx, positive_idx in pairs_idx:
+            anchor = place_images[anchor_idx]
+            positive = place_images[positive_idx]
+
             while True:
-                negative_idx = np.random.randint(0, len(places))
-                if negative_idx != i:
-                    if len(idx) == 2:
-                        negative_sample_idx = idx[j][1]
-                    else:
-                        negative_sample_idx = np.random.randint(len(places[negative_idx]))
-                    elem.append(str(places[negative_idx][negative_sample_idx]))
+                neg_place_idx = np.random.randint(0, len(places))
+                if neg_place_idx != place_idx and len(places[neg_place_idx]) > 0:
+                    negative = places[neg_place_idx][np.random.randint(len(places[neg_place_idx]))]
                     break
-        triplets.extend(current_triplets)
+
+            triplets.append([str(anchor), str(positive), str(negative)])
+
     return triplets
+
+
 
 class TriCombinationDataset(BaseDataset):
     def __getitem__(self, index):
