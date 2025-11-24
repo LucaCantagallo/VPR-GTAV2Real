@@ -47,8 +47,11 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir=work_dir)
     min_loss, best_epoch, no_improve_counter = float("inf"), 0, 0
     epoch_history = []
+    use_early_stopping = params["train"].get("early_stopping", False)
+    patience = params["train"].get("patience", 0)
     
     for epoch in range(n_epochs):
+        print(f"Epoch {epoch+1}/{n_epochs}")
         train_loss = loop(model, train_loader, loss_fn, optimizer, train=True, device=device)
         valid_loss = loop(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
         
@@ -57,6 +60,14 @@ if __name__ == "__main__":
         
         if scheduler:
             scheduler.step(valid_loss)
+
+        # salva la cronologia epoca
+        epoch_history.append({
+            "epoch": epoch + 1,
+            "train_loss": float(train_loss),
+            "valid_loss": float(valid_loss),
+            "lr": float(optimizer.param_groups[0]['lr'])
+        })
         
         if valid_loss < min_loss:
             min_loss = valid_loss
@@ -66,13 +77,26 @@ if __name__ == "__main__":
         else:
             no_improve_counter += 1
         
-        if params["train"].get("early_stopping", False) and no_improve_counter >= params["train"].get("patience", 0):
+        if use_early_stopping and no_improve_counter >= patience:
+            print(f"Early stopping at epoch {epoch+1}")
             break
         
         # --- rigenera triplets ogni epoca
         train_loader, valid_loader = refresh_dataloaders(train_places, valid_places,
                                                          params["train_samples_per_place"],
                                                          params["valid_samples_per_place"], params)
+        
+            # salva il JSON dettagliato
+    summary = {
+        "best_epoch": best_epoch,
+        "best_loss": float(min_loss),
+        "total_epochs": epoch + 1,
+        "early_stopping_used": use_early_stopping,
+        "patience": patience,
+        "epochs": epoch_history
+    }
     
     with open(os.path.join(work_dir, "training_summary.json"), "w") as f:
-        json.dump({"best_epoch": best_epoch, "best_loss": float(min_loss), "total_epochs": epoch+1}, f, indent=4)
+        json.dump(summary, f, indent=4)
+    
+    

@@ -73,7 +73,7 @@ def _load_and_split(dataload_mode, train_dataset, val_dataset, seed):
     return train_places, valid_places
 
 
-def _generate_triplets(places, samples_per_place=-1, use_combination=False):
+def _generate_triplets(places, samples_per_place=3, use_combination=False):
     triplets = []
 
     for place_idx, place_images in enumerate(places):
