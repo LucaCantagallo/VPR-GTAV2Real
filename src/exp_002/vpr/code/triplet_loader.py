@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from places_extractor import extract_places
 from filter_loader_daynight import filter_paired_daynight
+from filter_loader_vpr import filter_paired_vpr
 
 # --- pubblica: restituisce DataLoader pronti per training/validazione
 def get_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per_place, valid_samples_per_place, params, seed):
@@ -55,11 +56,22 @@ def get_triplet_loss():
     distance_function = lambda x, y: 1.0 - F.cosine_similarity(x, y)
     return nn.TripletMarginWithDistanceLoss(distance_function=distance_function)
 
+def test_paired_loader(dataload_mode, test_dataset):
+    test_places = extract_places(test_dataset)
+    
+    if dataload_mode == "daynight":
+        test_places = filter_paired_daynight(test_dataset, test_places)
+    else:
+        test_places = filter_paired_vpr(test_dataset, test_places)
+    return test_places
+
+
 
 # --- private
 def _load_and_split(dataload_mode, train_dataset, val_dataset, seed):
     train_places = extract_places(train_dataset)
     valid_places = extract_places(val_dataset)
+
     if dataload_mode == "daynight":
         train_places = filter_paired_daynight(train_dataset, train_places)
         valid_places = filter_paired_daynight(val_dataset, valid_places)

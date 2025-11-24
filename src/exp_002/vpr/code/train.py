@@ -8,43 +8,36 @@ from loop import loop
 from models import MLPCosine
 from utils import get_n_folders, load_params
 from triplet_loader import get_dataloaders, refresh_dataloaders, get_triplet_loss
+from settings import get_device, get_train_work_dir, init_optimizer_scheduler, set_seed, init_model
 
 if __name__ == "__main__":
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using {device} device")
+    device = get_device()
     
     experiments_dir = "./experiments"
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
     
-    base_path = os.path.join(experiments_dir, params.get("dataset", "run"))
-    os.makedirs(base_path, exist_ok=True)
-    work_dir = os.path.join(base_path, str(get_n_folders(base_path))) if params.get("work_dir") is None else os.path.join(base_path, params["work_dir"])
-    os.makedirs(work_dir, exist_ok=True)
-    shutil.copy(config_file, work_dir)
+    # Inizializza cartella di lavoro (train)
+    work_dir = get_train_work_dir(params, experiments_dir=experiments_dir, config_file=config_file)
     
-    seed = params["seed"]
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    set_seed(params["seed"])
     
     n_epochs = params["train"]["n_epochs"]
     lr = params["train"]["lr"]
     
     train_loader, valid_loader, train_places, valid_places = get_dataloaders(
         params["dataload"], params["train_dataset"], params["val_dataset"],
-        params["train_samples_per_place"], params["valid_samples_per_place"], params, seed
+        params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
     )
     
-    model = MLPCosine(device=device, **params["model"])
+    model = init_model(params, device)
     
     loss_fn = get_triplet_loss()
         
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=params["train"].get("weight_decay", 0.0))
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=params["train"].get("lr_factor", 0.5),
-                                  patience=params["train"].get("lr_patience", 5), min_lr=params["train"].get("lr_min", 1.e-6),
-                                  verbose=True) if params["train"].get("reduce_lr_on_plateau", False) else None
-    
+    optimizer, scheduler = init_optimizer_scheduler(model, params)
+
     writer = SummaryWriter(log_dir=work_dir)
+
     min_loss, best_epoch, no_improve_counter = float("inf"), 0, 0
     epoch_history = []
     use_early_stopping = params["train"].get("early_stopping", False)
@@ -86,7 +79,7 @@ if __name__ == "__main__":
                                                          params["train_samples_per_place"],
                                                          params["valid_samples_per_place"], params)
         
-            # salva il JSON dettagliato
+    # salva il JSON dettagliato
     summary = {
         "best_epoch": best_epoch,
         "best_loss": float(min_loss),

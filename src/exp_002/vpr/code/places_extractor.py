@@ -31,6 +31,7 @@ def extract_places(dataset_name, percentage=1.0, seed=42):
     
     elif dataset_name == "gsv":
     # Prende tutte le cartelle delle città
+        percentage = 0.05
         city_folders = glob(os.path.join(root, "Images", "*"))
         
 

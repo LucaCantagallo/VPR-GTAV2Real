@@ -11,13 +11,12 @@ from tqdm import tqdm
 
 import sys
 
-from filter_loader_vpr import filter_paired_vpr
-from filter_loader_daynight import filter_paired_daynight
-from places_extractor import extract_places
+from triplet_loader import test_paired_loader
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import BaseDataset
 from models import MLPCosine
-from utils import load_params, get_n_folders
+from utils import load_params
+from settings import get_device, get_test_work_dir, set_seed, init_model
 
 class TestDataset(BaseDataset):
     def __getitem__(self, index):
@@ -26,68 +25,36 @@ class TestDataset(BaseDataset):
         img1, _ = self.__load__(path_pair[1])
         return img0, img1
 
-def compute_cm(features0, features1, cm, j, name):
+def compute_cm(features0, features1, work_dir, model_name):
+    cm = np.zeros((len(features0), len(features1)))
     for i in range(len(features0)):
         cosine_sim = F.cosine_similarity(features0[i].unsqueeze(0), features1)
         cm[i] = cosine_sim
-    np.savetxt(os.path.join(work_dir, f"cm_{name}_{model_names[j]}.txt"), cm)
+    np.savetxt(os.path.join(work_dir, f"cm_{model_name}.txt"), cm)
 
 if __name__ == "__main__":
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using {device} device")
+    device = get_device()
     
     experiments_dir = "./experiments"
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
 
+    # Inizializza cartella di lavoro (test)
+    work_dir = get_test_work_dir(params, experiments_dir=experiments_dir)
     
-
-
-    base_path = os.path.join(experiments_dir, params["save_dir"])
-
-    # Determina la cartella di lavoro
-    if params["experiment"] is None:
-        n_folders = get_n_folders(base_path)
-        work_dir = os.path.join(base_path, str(n_folders))
-    elif str(params["experiment"]) == "-1":
-        subfolders = [f for f in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, f)) and f.isdigit()]
-        if not subfolders:
-            raise ValueError(f"Nessuna sottocartella trovata in {base_path}")
-        subfolders = sorted(subfolders, key=lambda x: int(x))
-        work_dir = os.path.join(base_path, subfolders[-1])
-    else:
-        work_dir = os.path.join(base_path, str(params["experiment"]))
-
     # Imposta semi
-    seed = params["seed"]
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    set_seed(params["seed"])
 
     # Dataset e dataloader
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
-    if test_dataset == "gsv":
-        test_places = extract_places(test_dataset, percentage=0.05)
-    else:
-        test_places = extract_places(test_dataset)
 
-    if dataload_mode == "daynight":
-        test_places = filter_paired_daynight(test_dataset, test_places)
-    else:
-        test_places = filter_paired_vpr(test_dataset, test_places)
-
+    test_places = test_paired_loader(dataload_mode, test_dataset)
 
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 
-    # Inizializza modello una sola volta
-    model = MLPCosine(
-        model_name=params["model"]["name"],
-        trainable_from_layer=params["model"]["trainable_from_layer"],
-        state_dict=params["model"]["state_dict"],
-        device=device
-    )
-    model.to(device, non_blocking=True)
+    model = init_model(params, device)
     model.eval()
 
     # Trova tutti i checkpoint nella cartella
@@ -103,8 +70,7 @@ if __name__ == "__main__":
         features0 = []
         features1 = []
 
-        for mb in tqdm(dataloader):
-            imgs0, imgs1 = mb  # ogni batch contiene tuple (img0, img1)
+        for imgs0, imgs1 in tqdm(dataloader):
             f0 = model(imgs0.to(device))
             f1 = model(imgs1.to(device))
             features0.append(f0.detach().cpu())
@@ -113,11 +79,8 @@ if __name__ == "__main__":
         features0 = torch.cat(features0)
         features1 = torch.cat(features1)
 
-        cm0 = np.zeros((len(test_places), len(test_places)))
-        cm1 = np.zeros((len(test_places), len(test_places)))
+        compute_cm(features0, features1, work_dir, model_names[j])
 
-        compute_cm(features0, features1, cm0, j, "feat0")
-        compute_cm(features1, features0, cm1, j, "feat1")
 
 
 
