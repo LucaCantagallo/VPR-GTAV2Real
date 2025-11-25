@@ -20,7 +20,7 @@ train:
   use_center_crop: false
   use_random_crop: true
   normalize: false
-  n_epochs: 1
+  n_epochs: 400
   lr: 1.e-4
   batch_size: 256
 
@@ -40,5 +40,5 @@ evaluation:
   k: 50
 
 
-train_samples_per_place: 1
-valid_samples_per_place: 1 
+train_samples_per_place: 3
+valid_samples_per_place: 3 

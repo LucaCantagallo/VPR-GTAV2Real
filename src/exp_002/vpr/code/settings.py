@@ -80,7 +80,7 @@ def init_model(params, device, load_state_dict=True):
 # ------------------ Ottimizzatore e scheduler ------------------
 def init_optimizer_scheduler(model, params):
     lr = params["train"]["lr"]
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=params["train"].get("weight_decay", 0.0))
+    optimizer = _select_optimizer(model, params)
     scheduler = ReduceLROnPlateau(
         optimizer,
         mode='min',
@@ -90,4 +90,11 @@ def init_optimizer_scheduler(model, params):
         verbose=True
     ) if params["train"].get("reduce_lr_on_plateau", False) else None
     return optimizer, scheduler
+
+def _select_optimizer(model, params):
+    if params["train"]["optimizer"] == "adamw":
+        return torch.optim.AdamW(model.parameters(), lr=params["train"]["lr"], weight_decay=params["train"].get("weight_decay", 0.0))
+    elif params["train"]["optimizer"] == "adam":
+        return torch.optim.Adam(model.parameters(), lr=params["train"]["lr"], weight_decay=params["train"].get("weight_decay", 0.0))
+
 
