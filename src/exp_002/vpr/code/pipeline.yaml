@@ -2,6 +2,8 @@ seed: 42
 
 dataload: "vpr"
 
+learning_method: "triplet"  # "triplet"  #"contrastive" #
+
 train_dataset: "gta"
 val_dataset: "gsv"
 test_dataset: "gsv"
@@ -20,7 +22,7 @@ train:
   use_center_crop: false
   use_random_crop: true
   normalize: false
-  n_epochs: 400
+  n_epochs: 1
   lr: 1.e-4
   batch_size: 256
 

@@ -49,7 +49,10 @@ if __name__ == "__main__":
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
 
-    test_places = test_paired_loader(dataload_mode, test_dataset)
+    if params["learning_method"] == "triplet":
+        test_places = test_paired_loader(dataload_mode, test_dataset)
+    else:
+        raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
 
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
@@ -67,20 +70,19 @@ if __name__ == "__main__":
         model.to(device, non_blocking=True)
         model.eval()
 
-        features0 = []
-        features1 = []
+        features_list = []
+        labels_list = []
 
         for imgs0, imgs1 in tqdm(dataloader):
             f0 = model(imgs0.to(device))
             f1 = model(imgs1.to(device))
-            features0.append(f0.detach().cpu())
-            features1.append(f1.detach().cpu())
+            features_list.append(f0.detach().cpu())
+            labels_list.append(f1.detach().cpu())
 
-        features0 = torch.cat(features0)
-        features1 = torch.cat(features1)
+        features_list = torch.cat(features_list)
+        labels_list = torch.cat(labels_list)
 
-        compute_cm(features0, features1, work_dir, model_names[j])
-
+        compute_cm(features_list, labels_list, work_dir, model_names[j])
 
 
 

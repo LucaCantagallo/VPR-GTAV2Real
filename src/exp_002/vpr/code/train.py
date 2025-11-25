@@ -25,14 +25,18 @@ if __name__ == "__main__":
     n_epochs = params["train"]["n_epochs"]
     lr = params["train"]["lr"]
     
-    train_loader, valid_loader, train_places, valid_places = get_dataloaders(
-        params["dataload"], params["train_dataset"], params["val_dataset"],
-        params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
-    )
+    if params["learning_method"] == "triplet":
+        train_loader, valid_loader, train_places, valid_places = get_dataloaders(
+            params["dataload"], params["train_dataset"], params["val_dataset"],
+            params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
+        )
+        loss_fn = get_triplet_loss()
+    else:
+        raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
     
     model = init_model(params, device)
     
-    loss_fn = get_triplet_loss()
+    
         
     optimizer, scheduler = init_optimizer_scheduler(model, params)
 
@@ -45,8 +49,11 @@ if __name__ == "__main__":
     
     for epoch in range(n_epochs):
         print(f"Epoch {epoch+1}/{n_epochs}")
-        train_loss = loop(model, train_loader, loss_fn, optimizer, train=True, device=device)
-        valid_loss = loop(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
+        if params["learning_method"] == "triplet":
+            train_loss = loop(model, train_loader, loss_fn, optimizer, train=True, device=device)
+            valid_loss = loop(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
+        else:
+            raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
         
         writer.add_scalar("train/loss", train_loss, epoch)
         writer.add_scalar("valid/loss", valid_loss, epoch)
@@ -75,9 +82,10 @@ if __name__ == "__main__":
             break
         
         # --- rigenera triplets ogni epoca
-        train_loader, valid_loader = refresh_dataloaders(train_places, valid_places,
-                                                         params["train_samples_per_place"],
-                                                         params["valid_samples_per_place"], params)
+        if params["learning_method"] == "triplet":
+            train_loader, valid_loader = refresh_dataloaders(train_places, valid_places,
+                                                            params["train_samples_per_place"],
+                                                            params["valid_samples_per_place"], params)
         
     # salva il JSON dettagliato
     summary = {
