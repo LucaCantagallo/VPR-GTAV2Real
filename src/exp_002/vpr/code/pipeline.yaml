@@ -21,8 +21,8 @@ model:
 train:
   use_center_crop: false
   use_random_crop: true
-  normalize: false
-  n_epochs: 1
+  normalize: true
+  n_epochs: 400
   lr: 1.e-4
   batch_size: 256
 
@@ -45,4 +45,5 @@ evaluation:
 
 
 train_samples_per_place: 6
-valid_samples_per_place: 3 
+valid_samples_per_place: 4 
+contrastive_places_per_batch: 4

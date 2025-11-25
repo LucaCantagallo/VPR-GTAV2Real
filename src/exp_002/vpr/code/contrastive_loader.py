@@ -64,23 +64,36 @@ def _load_and_split(dataload_mode, train_dataset, val_dataset, seed):
     return train_places, valid_places
 
 
-def _generate_supcon_batches(places, samples_per_place):
-    batches = []
+def _generate_supcon_batches(places, samples_per_place, places_per_batch=1):
+    """
+    Genera batch per SupCon.
+    - samples_per_place: numero immagini per place
+    - places_per_batch: numero di place per batch (maggiore = più negativi)
+    """
+    all_batches = []
+    num_places = len(places)
+    idx_list = np.arange(num_places)
+    np.random.shuffle(idx_list)
 
-    for place_idx, images in enumerate(places):
-        if len(images) < 2:
-            continue
+    for i in range(0, num_places, places_per_batch):
+        batch_places_idx = idx_list[i:i+places_per_batch]
+        batch = []
+        for place_idx in batch_places_idx:
+            images = places[place_idx]
+            if len(images) < 2:
+                continue
 
-        if samples_per_place > 0 and len(images) > samples_per_place:
-            sel = np.random.choice(len(images), samples_per_place, replace=False)
-            sel_imgs = [images[i] for i in sel]
-        else:
-            sel_imgs = images
+            if samples_per_place > 0 and len(images) > samples_per_place:
+                sel = np.random.choice(len(images), samples_per_place, replace=False)
+                sel_imgs = [images[j] for j in sel]
+            else:
+                sel_imgs = images
 
-        batch = [(p, place_idx) for p in sel_imgs]
-        batches.append(batch)
+            batch += [(p, place_idx) for p in sel_imgs]
+        if batch:
+            all_batches.append(batch)
+    return all_batches
 
-    return batches
 
 
 # ---------------------------
@@ -117,8 +130,8 @@ def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
 def refresh_contrastive_dataloaders(train_places, valid_places,
                                     train_samples_per_place, valid_samples_per_place, params):
 
-    train_batches = _generate_supcon_batches(train_places, train_samples_per_place)
-    valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place)
+    train_batches = _generate_supcon_batches(train_places, train_samples_per_place, params["contrastive_places_per_batch"])
+    valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place, params["contrastive_places_per_batch"])
 
     train_loader = DataLoader(
         SupConDataset(train_batches,
