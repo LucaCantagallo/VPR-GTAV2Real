@@ -4,10 +4,9 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from loop import loop
 from models import MLPCosine
 from utils import get_n_folders, load_params
-from triplet_loader import get_dataloaders, refresh_dataloaders, get_triplet_loss
+from triplet_loader import get_dataloaders, refresh_dataloaders, run_triplet_epoch, get_triplet_loss
 from settings import get_device, get_train_work_dir, init_optimizer_scheduler, set_seed, init_model
 
 if __name__ == "__main__":
@@ -50,8 +49,8 @@ if __name__ == "__main__":
     for epoch in range(n_epochs):
         print(f"Epoch {epoch+1}/{n_epochs}")
         if params["learning_method"] == "triplet":
-            train_loss = loop(model, train_loader, loss_fn, optimizer, train=True, device=device)
-            valid_loss = loop(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
+            train_loss = run_triplet_epoch(model, train_loader, loss_fn, optimizer, train=True, device=device)
+            valid_loss = run_triplet_epoch(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
         else:
             raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
         

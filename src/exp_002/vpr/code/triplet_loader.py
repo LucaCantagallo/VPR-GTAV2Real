@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from places_extractor import extract_places
 from filter_loader_daynight import filter_paired_daynight
@@ -32,7 +33,6 @@ def get_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per
     
     return train_loader, valid_loader, train_places_paired, valid_places_paired
 
-
 # --- pubblica: rigenera DataLoader a ogni epoca (stesso formato)
 def refresh_dataloaders(train_places, valid_places, train_samples_per_place, valid_samples_per_place, params):
     train_triplets = _generate_triplets(train_places, train_samples_per_place)
@@ -51,6 +51,37 @@ def refresh_dataloaders(train_places, valid_places, train_samples_per_place, val
                               batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8)
     
     return train_loader, valid_loader
+
+def run_triplet_epoch(model,
+         dataloader,
+         loss_fn,
+         optimizer=None,
+         train=True,
+         device="cpu"
+         ):
+    if train:
+        model.train()
+    else:
+        model.eval()
+    loss_val = 0.0
+    
+    with torch.set_grad_enabled(train):
+        for mb_idx, mb in enumerate(tqdm(dataloader)):            
+            
+            anchor, positive, negative = mb
+            anchor, positive, negative = anchor.to(device), positive.to(device), negative.to(device)
+            anchor_output, positive_output, negative_output = model(anchor), model(positive), model(negative)
+            loss = loss_fn(anchor_output, positive_output, negative_output) 
+
+            if train:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+    
+            loss_val += loss.item()            
+            
+    loss_val /= (mb_idx + 1)
+    return loss_val
 
 def get_triplet_loss():
     distance_function = lambda x, y: 1.0 - F.cosine_similarity(x, y)
