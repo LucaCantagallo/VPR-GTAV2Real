@@ -1,3 +1,4 @@
+### train.py
 import os, shutil, json, numpy as np, torch
 from torch import nn
 import torch.nn.functional as F
@@ -7,6 +8,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import MLPCosine
 from utils import get_n_folders, load_params
 from triplet_loader import get_dataloaders, refresh_dataloaders, run_triplet_epoch, get_triplet_loss
+from contrastive_loader import get_contrastive_dataloaders, get_supcon_loss, run_supcon_epoch, refresh_contrastive_dataloaders
+
 from settings import get_device, get_train_work_dir, init_optimizer_scheduler, set_seed, init_model
 
 if __name__ == "__main__":
@@ -30,6 +33,12 @@ if __name__ == "__main__":
             params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
         )
         loss_fn = get_triplet_loss()
+    elif params["learning_method"] == "infonce":
+        train_loader, valid_loader, train_places, valid_places = get_contrastive_dataloaders(
+            params["dataload"], params["train_dataset"], params["val_dataset"],
+            params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
+        )
+        loss_fn = get_supcon_loss(temperature=params["train"]["temperature"])
     else:
         raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
     
@@ -51,6 +60,9 @@ if __name__ == "__main__":
         if params["learning_method"] == "triplet":
             train_loss = run_triplet_epoch(model, train_loader, loss_fn, optimizer, train=True, device=device)
             valid_loss = run_triplet_epoch(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
+        elif params["learning_method"] == "infonce":
+            train_loss = run_supcon_epoch(model, train_loader, loss_fn, optimizer, train=True, device=device)
+            valid_loss = run_supcon_epoch(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
         else:
             raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
         
@@ -83,6 +95,11 @@ if __name__ == "__main__":
         # --- rigenera triplets ogni epoca
         if params["learning_method"] == "triplet":
             train_loader, valid_loader = refresh_dataloaders(train_places, valid_places,
+                                                            params["train_samples_per_place"],
+                                                            params["valid_samples_per_place"], params)
+            
+        elif params["learning_method"] == "infonce":
+            train_loader, valid_loader = refresh_contrastive_dataloaders(train_places, valid_places,
                                                             params["train_samples_per_place"],
                                                             params["valid_samples_per_place"], params)
         

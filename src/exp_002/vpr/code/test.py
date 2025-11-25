@@ -49,10 +49,7 @@ if __name__ == "__main__":
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
 
-    if params["learning_method"] == "triplet":
-        test_places = test_paired_loader(dataload_mode, test_dataset)
-    else:
-        raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
+    test_places = test_paired_loader(dataload_mode, test_dataset)
 
     dataset = TestDataset(test_places)
     dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
