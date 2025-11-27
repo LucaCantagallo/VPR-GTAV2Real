@@ -1,3 +1,5 @@
+# contrastive_loader.py
+
 import numpy as np
 from torch.utils.data import DataLoader
 import torch
@@ -65,34 +67,31 @@ def _load_and_split(dataload_mode, train_dataset, val_dataset, seed):
 
 
 def _generate_supcon_batches(places, samples_per_place, places_per_batch=1):
-    """
-    Genera batch per SupCon.
-    - samples_per_place: numero immagini per place
-    - places_per_batch: numero di place per batch (maggiore = più negativi)
-    """
     all_batches = []
     num_places = len(places)
-    idx_list = np.arange(num_places)
-    np.random.shuffle(idx_list)
 
-    for i in range(0, num_places, places_per_batch):
-        batch_places_idx = idx_list[i:i+places_per_batch]
+    for _ in range(num_places // places_per_batch):
+        # campiona nuovi posti per questo batch
+        batch_places_idx = np.random.choice(num_places, places_per_batch, replace=False)
+
         batch = []
         for place_idx in batch_places_idx:
-            images = places[place_idx]
-            if len(images) < 2:
-                continue
+            images = places[place_idx].copy()
+            np.random.shuffle(images)
 
-            if samples_per_place > 0 and len(images) > samples_per_place:
+            if len(images) > samples_per_place:
                 sel = np.random.choice(len(images), samples_per_place, replace=False)
                 sel_imgs = [images[j] for j in sel]
             else:
                 sel_imgs = images
 
             batch += [(p, place_idx) for p in sel_imgs]
-        if batch:
-            all_batches.append(batch)
+
+        all_batches.append(batch)
+
     return all_batches
+
+
 
 
 
@@ -105,8 +104,10 @@ def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
 
     train_places, valid_places = _load_and_split(dataload_mode, train_dataset, val_dataset, seed)
 
-    train_batches = _generate_supcon_batches(train_places, train_samples_per_place)
-    valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place)
+    places_per_batch = params.get("contrastive_places_per_batch", 1)
+    train_batches = _generate_supcon_batches(train_places, train_samples_per_place, places_per_batch)
+    valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place, places_per_batch)
+
 
     train_loader = DataLoader(
         SupConDataset(train_batches,
@@ -191,6 +192,13 @@ def run_supcon_epoch(model, dataloader, loss_fn, optimizer=None, train=True, dev
     dataloader_iter = tqdm(dataloader, total=len(dataloader), ncols=80)
     for batch in dataloader_iter:
         imgs, labels = batch
+
+        # Diagnostics: ensure expected shapes
+        if imgs.dim() != 4:
+            raise ValueError(f"Expected imgs with 4 dims [N,C,H,W], got {imgs.shape}")
+        if labels.dim() != 1:
+            raise ValueError(f"Expected labels 1D tensor [N], got {labels.shape}")
+
 
         imgs = imgs.to(device)
         labels = labels.to(device)

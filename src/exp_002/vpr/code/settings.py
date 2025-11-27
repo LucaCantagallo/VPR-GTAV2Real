@@ -1,3 +1,4 @@
+# settings.py
 import os
 import shutil
 import json
@@ -20,7 +21,7 @@ def set_seed(seed):
 # ------------------ Work dir per train ------------------
 def get_train_work_dir(params, experiments_dir="./experiments", config_file=None):
     # Usa "dataset" come base path
-    base_path = os.path.join(experiments_dir, params.get("dataset", "run"))
+    base_path = os.path.join(experiments_dir, params.get("save_dir", "run"))
     os.makedirs(base_path, exist_ok=True)
 
     # Se l'utente ha specificato work_dir nel YAML

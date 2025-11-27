@@ -52,7 +52,7 @@ if __name__ == "__main__":
     test_places = test_paired_loader(dataload_mode, test_dataset)
 
     dataset = TestDataset(test_places)
-    dataloader = DataLoader(dataset, batch_size=256, shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
+    dataloader = DataLoader(dataset, batch_size=params["train"]["batch_size"], shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 
     model = init_model(params, device)
     model.eval()
