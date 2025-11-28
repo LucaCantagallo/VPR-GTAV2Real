@@ -1,24 +1,369 @@
-Il secondo esperimento è consistito nella sua prima fase nell'ottimizzazione del training in sè. Mantenendo gli stessi dati del precedente esperimento, ovvero:
+# Esperimento 002 — Ottimizzazioni, Generalizzazione VPR e Introduzione del Contrastive Learning
 
-seed: 42
-dataset: "gta" #"gta" #"alderley" #
-work_dir: null
+## Descrizione generale
 
-model:
-  name: "resnet50"
-  trainable_from_layer: null
-  state_dict: null #"src/exp_002/places365/resnet50_places365/resnet50_places365.pth" #
+Questo esperimento rappresenta l’evoluzione naturale dell’Esperimento 001.  
+L’obiettivo è stato di **migliorare l’efficienza del training**, **generalizzare la pipeline** oltre il compito specifico giorno-notte e introdurre tecniche moderne di **contrastive learning**, mantenendo come riferimento il problema VPR e consolidando progressivamente una baseline più robusta.
 
-train:
-  use_center_crop: false
-  use_random_crop: true
-  normalize: false
-  n_epochs: 400
-  lr: 1.e-4
-  batch_size: 256
+Il lavoro si è sviluppato in più fasi consecutive e complementari:  
+1. Ottimizzazione del training tramite early stopping e scheduling del learning rate.  
+2. Refactor della pipeline per supportare compiti generici VPR oltre il giorno-notte.  
+3. Estensione delle capacità del dataloader (multi-triplette per place).  
+4. Migliorie incrementali con normalizzazione, scelta dell’optimizer e tuning dei parametri.  
+5. Introduzione e integrazione completa del metodo **InfoNCE** come alternativa a Triplet Loss.  
+6. Studio e valutazione degli hard negative nelle triplet.
+
+---
+## 1. Miglioramento dell’efficienza del training
+
+Nell’Esperimento 1 il modello migliore richiedeva **400 epoche**.  
+Con l’introduzione dei parametri configurabili nel blocco `train:` del YAML, la pipeline supporta ora:
+
+- `early_stopping = true`  
+- `patience = 10`  
+- `min_delta = 0.002`  
+- `reduce_lr_on_plateau = true`  
+- `lr_patience = 3`  
+- `lr_factor = 0.5`  
+- `lr_min = 1e-6`  
+- `weight_decay = 1e-6`  
+- `optimizer = adam`
+
+il training converge ora in **~25 epoche**, riducendo drasticamente i tempi computazionali e stabilizzando la curva di convergenza.
 
 
-train_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
-valid_samples_per_place: -1 #-1 or 0 takes all, 1 takes only one random, > 1 takes the same number for positive and negatives
 
-E applicando inizialmente l'early stopping, confrontandolo successivamente con il numero di epoche effettuate nell'esperimento precedente. Si evince che: ...
+## 2. Refactor strutturale della pipeline (generalizzazione VPR)
+
+La pipeline originale era vincolata al task **daynight**.  
+Con il refactor è stata introdotta una struttura generalizzata, selezionabile tramite parametro YAML:
+
+- `task = vpr`  
+- `task = daynight`
+
+Gli aggiornamenti principali:
+
+### Generalizzazione dataset
+
+È stato introdotto `places_extractor.py`, che:
+
+- astrae completamente il recupero dei “places”;  
+- supporta **GTA**, **Alderley**, **Tokyo247**, **GSV**;  
+- rimuove logiche legate al giorno/notte;  
+- introduce il parametro `percentage` per campionare sottoinsiemi controllati;  
+- adotta grouping coerente per ciascun dataset (ad es. grouping per place-id in GSV).
+
+Questa separazione rende il flusso indipendente dal tipo di dataset.
+
+### Flusso daynight → flusso vpr
+
+Il vecchio file `data_loader_daynight.py` continua a gestire:
+
+- accoppiamento giorno/notte;  
+- selezione di coppie basate sugli specifici pattern di GTA, Alderley, Tokyo247.
+
+Per VPR è stato introdotto `filter_paired_vpr.py`, che:
+
+- genera coppie generiche senza presupporre condizioni di illuminazione;  
+- lavora uniformemente su tutti i dataset;  
+- consente valutazione VPR basata su simple-pair matching.
+
+### Standardizzazione della pipeline
+
+Il flusso training/validation/testing ora è unificato:
+
+- struttura di dataset completamente modulare;  
+- nessuna logica special-case nei file principali;  
+- configurazione interamente demandata ai parametri YAML.
+
+### Nuovo setup VPR
+
+Il refactor introduce una configurazione standardizzata:
+
+- **train_dataset**: GTA  
+- **validation_dataset**: GSV (subset)  
+- **test_dataset**: GSV (subset)
+
+Questo setup permette una baseline VPR completamente generalizzabile.  
+
+Oltre alla generalizzazione, il refactor garantisce ora:
+
+- directory di lavoro coerenti (`get_train_work_dir()` e `get_test_work_dir()`);  
+- separazione chiara tra logica modello (`init_model`) e logica esperimento;  
+- codice pronto per estendere futuri task senza modificare il core.
+### Risultati baseline VPR
+
+L’esperimento di riferimento, eseguito con la pipeline refactorizzata e il setup:
+
+- **train**: GTA  
+- **val**: GSV (subset)  
+- **test**: GSV (subset)
+
+e con gli stessi parametri dell'esperimento precedente ha prodotto i seguenti valori di **recall@k**:
+
+| k  | Recall |
+|----|---------|
+| 1  | 0.4300  |
+| 5  | 0.5827  |
+| 10 | 0.7064  |
+| 50 | 0.8578  |
+
+Questi costituiscono la **baseline ufficiale** del nuovo flusso VPR.
+
+## 3. Estensione e completa generalizzazione della generazione delle triplette
+
+Il sistema precedente era rigidamente strutturato:  
+- una sola tripletta per place,  
+- generazione delle triplette **sparsa in più file**,  
+- logica del sampling **fusa dentro train.py**,  
+- impossibilità di usare approcci diversi dalla Triplet Loss senza riscrivere tutto.
+
+Il refactor ha isolato completamente il meccanismo delle triplette all’interno di un modulo dedicato, rendendolo indipendente sia dal dataset che dal metodo di apprendimento.
+
+### Architettura attuale
+
+L’intera logica è ora contenuta in `triplet_loader.py`, che fornisce:
+
+- **`get_dataloaders()`**  
+  costruisce i DataLoader per train/validation in modo uniforme per tutti i dataset e tutti i metodi.
+  
+- **`refresh_dataloaders()`**  
+  rigenera le triplette a ogni epoca, mantenendo la stessa API del contrastive loader.
+
+- **`_generate_triplets()`**  
+  unico punto responsabile della generazione:
+  - genera tutte le combinazioni anchor–positive,
+  - campiona fino a `samples_per_place`,
+  - seleziona negativi da place diversi,
+  - supporta permutations o combinations,
+  - è agnostica rispetto al dataset e al task.
+
+- **`TriCombinationDataset`**  
+  dataset minimale che si occupa solo del caricamento delle tre immagini, sfruttando la logica comune del `BaseDataset`.
+
+Il risultato è un modulo autonomo e intercambiabile.
+
+### Integrazione nel flusso di training
+
+`train.py` ora non contiene più alcuna logica di creazione delle triplette.  
+Il ciclo di training:
+
+- chiama `get_dataloaders(...)` all’inizio,  
+- chiama `refresh_dataloaders(...)` a ogni epoca,  
+- utilizza la stessa interfaccia sia per Triplet che per InfoNCE.
+
+Questo separa in modo netto:
+
+- **logica del training**  
+- **logica del sampling**  
+- **logica della configurazione**
+
+e permette di sostituire il metodo di apprendimento senza toccare nessun’altra parte della pipeline.
+
+### Possibilità introdotte dal refactor
+
+Grazie alla generalizzazione del generatore di triplette ora è possibile:
+
+- scegliere **qualsiasi numero di triplette per place**, sia nel training che nella validation;  
+- usare **dataset arbitrari** (GTA, Alderley, GSV, Tokyo, ecc.) senza adattamenti manuali;  
+- sostituire la Triplet Loss con altre tecniche mantenendo lo stesso sistema di sampling;  
+- ottenere una pipeline modulare dove ogni componente è isolato e testabile.
+
+### Risultati con l’estensione a 2 triplette per place per training e validation
+
+| k | Recall |
+|---|--------|
+| 1 | 0.5064 |
+| 5 | 0.7083 |
+| 10 | 0.7692 |
+| 50 | 0.8910 |
+
+## 4. Scelta dell’optimizer e normalizzazione immagini
+
+È stato eseguito un confronto diretto tra tre ottimizzatori:
+
+- **Adam**  
+- **AdamV**  
+- **AdamW**
+
+La differenza tra loro è emersa soprattutto sul ranking alto:  
+**AdamW** ha prodotto un miglioramento leggero ma costante risultando il più stabile tra i tre.
+
+Parallelamente è stata introdotta la **normalizzazione delle immagini** (prima non sfruttata efficacemente nel task daynight).  
+Nel contesto VPR, al contrario, la normalizzazione fornisce un beneficio misurabile:
+
+| k  | Recall (norm. attiva) |
+|----|------------------------|
+| 50 | 0.8942                 |
+
+Questi esperimenti sono stati volutamente compatti e mirati:  
+non è stato introdotto nuovo codice complesso, ma solo micro-ottimizzazioni per identificare l’optimizer più adatto e verificare l’impatto della normalizzazione nel setup VPR.
+
+
+### 5. Ricerca dei migliori campioni per place
+Dopo vari esperimenti, la combinazione preferibile è risultata:
+
+- `train_samples_per_place = 4`  
+- `valid_samples_per_place = 2`
+
+risultando in:
+
+| k | Recall |
+|---|--------|
+| 1 | 0.5288 |
+| 5 | 0.7083 |
+| 10 | 0.7788 |
+| 50 | 0.9006 |
+
+### 6. Generalizzazione del metodo di learning (Triplet → InfoNCE)
+Refactor completo per svincolare la pipeline dalla triplet loss.  
+Ora è possibile selezionare:
+
+- `learning_method: "triplet"`  
+- `learning_method: "infonce"`
+
+con un singolo parametro YAML.
+
+Test iniziale InfoNCE:
+
+- 4 samples train  
+- 2 samples val  
+- 32 places per batch  
+- AdamW  
+- Normalize attivo  
+- Temperature 0.05  
+
+**Recall@50 = 0.9038**
+
+Test con parametri ampliati:
+
+- 8 samples train  
+- 3 samples val  
+- 48 places per batch  
+
+**Recall@50 = 0.9134**
+
+## 6. Generalizzazione del metodo di learning (Triplet → InfoNCE)
+
+Dopo la completa modularizzazione delle triplette, la pipeline è stata estesa per supportare un secondo metodo di apprendimento: **InfoNCE**.  
+L’obiettivo era verificare se, nel contesto VPR, un loss contrastivo moderno potesse superare le performance del classico approccio Triplet.
+
+La selezione del metodo è ora immediata, tramite YAML:
+
+- `learning_method: "triplet"`  
+- `learning_method: "infonce"`
+
+### Introduzione del modulo contrastive
+
+Il nuovo file `contrastive_loader.py` contiene l’intera pipeline InfoNCE/SupCon:
+
+- **`SupConDataset`**  
+  dataset che restituisce batch strutturati come gruppi di immagini dello stesso place.
+
+- **`_generate_supcon_batches()`**  
+  genera batch contrastivi mantenendo `samples_per_place` e `places_per_batch` configurabili.
+
+- **`get_contrastive_dataloaders()`** e **`refresh_contrastive_dataloaders()`**  
+  analoghi alle versioni triplet, ma ottimizzati per il loss contrastivo.
+
+- **`get_supcon_loss()`**  
+  implementazione completa della NT-Xent (InfoNCE), con temperature configurabile.
+
+L’integrazione con il training è stata strutturata in modo da replicare esattamente il comportamento delle triplette: API identiche, refresh a ogni epoca, stessa gestione dataset, stessa compatibilità con gli scheduler.
+
+### Motivazione del metodo
+
+InfoNCE si presta bene a VPR perché:
+
+- opera su batch più ricchi,  
+- sfrutta meglio il numero di samples per place,  
+- stabilizza il training quando `samples_per_place > 2`,  
+- sfrutta la normalizzazione interna e la temperatura per controllare le similarità.
+
+La pipeline era limitata alla Triplet Loss; questa estensione ha richiesto implementazione, debugging del batching, tuning dei parametri e confronto empirico con le configurazioni esistenti.
+
+### Risultati iniziali
+
+**Test base InfoNCE:**
+
+- 4 samples train  
+- 2 samples val  
+- 32 places per batch  
+- AdamW  
+- Normalize attivo  
+- Temperature 0.05  
+
+**Recall@50 = 0.9038**
+
+### Test estesi
+
+Ampliando i parametri:
+
+- 8 samples train  
+- 3 samples val  
+- 48 places per batch  
+
+**Recall@50 = 0.9134**
+
+### Considerazioni sul miglioramento
+
+L’aumento è significativo e conferma che InfoNCE si adatta meglio alla struttura dei dataset VPR, dove molte viste dello stesso luogo possono essere sfruttate per creare embedding più robusti.  
+Molto del lavoro in questo capitolo è consistito nel:
+
+- comprendere e implementare accuratamente InfoNCE/SupCon,  
+- rifinire la generazione dei batch contrastivi,  
+- testare combinazioni numeriche (samples, places_per_batch, temperature),  
+- validare che il tutto fosse compatibile con la pipeline già generalizzata.
+
+L’infrastruttura ora supporta due metodi di apprendimento completamente intercambiabili, permettendo ulteriori esplorazioni future senza modifiche strutturali alla pipeline.
+
+
+## Risultati principali
+
+| Configurazione | Metodo | Recall@50 |
+|----------------|--------|------------|
+| 1 train / 1 val (**baseline VPR**) | Triplet | 0.8578 |
+| 2 train / 2 val | Triplet | 0.8910 |
+| Normalizzazione | Triplet | 0.8942 |
+| 4 train / 2 val | **Triplet** | **0.9006** |
+| 4 train / 2 val | InfoNCE | 0.9038 |
+| 8 train / 3 val | **InfoNCE** | **0.9134** |
+
+---
+
+## Analisi dei risultati
+
+1. Early stopping riduce enormemente i tempi di training con qualità invariata o migliore.  
+2. La pipeline VPR generalizzata permette esperimenti più realistici rispetto al daynight.  
+3. Le triplette multiple hanno dato un boost immediato alla performance.  
+4. AdamW risulta migliore di Adam in modo costante.  
+5. La normalizzazione è decisiva nel contesto VPR.  
+6. InfoNCE supera Triplet in tutte le configurazioni testate.  
+7. L’aumento dei samples per place migliora fino a un plateau.  
+8. La pipeline è ora più modulare, estendibile e pronta a tecniche più avanzate.
+
+---
+
+## Combinazione più performante (finora)
+
+| Metodo | Parametri principali | Recall@50 |
+|--------|-----------------------|------------|
+| **InfoNCE** | 8 train, 3 val, 48 places per batch | **0.9134** |
+
+---
+
+## Conclusioni
+
+- Il training è passato da 400 a ~25 epoche mantenendo o migliorando la performance.  
+- La pipeline è ora completamente generalizzata e configurabile via YAML.  
+- Triplette multiple, AdamW e normalizzazione hanno migliorato in modo incrementale la qualità.  
+- InfoNCE rappresenta il salto più grande in performance e flessibilità.  
+- La pipeline è robusta, modulare e pronta a estensioni avanzate.
+
+---
+
+## Sviluppi futuri proposti per l’Esperimento 3
+
+- Continuare con ResNet50, concentrandosi sul **preprocessing delle immagini**.  
+- Introduzione di tecniche **gta2real** per ridurre il domain gap.  
+- Adozione di augmentation più avanzate per migliorare la robustezza del modello.
