@@ -1,4 +1,4 @@
-# Esperimento 002 — Ottimizzazioni, Generalizzazione VPR e Introduzione del Contrastive Learning
+# Esperimento 002 — Ottimizzazioni, Generalizzazione VPR e Contrastive Learning
 
 ## Descrizione generale
 
@@ -53,7 +53,7 @@ Gli aggiornamenti principali:
 - introduce il parametro `percentage` per campionare sottoinsiemi controllati;  
 - adotta grouping coerente per ciascun dataset (ad es. grouping per place-id in GSV).
 
-Questa separazione rende il flusso indipendente dal tipo di dataset.
+Questa separazione rende il flusso indipendente dal tipo di dataset di training, validation o testing.
 
 ### Flusso daynight → flusso vpr
 
@@ -186,7 +186,6 @@ Grazie alla generalizzazione del generatore di triplette ora è possibile:
 - **AdamV**  
 - **AdamW**
 
-La differenza tra loro è emersa soprattutto sul ranking alto:  
 **AdamW** ha prodotto un miglioramento leggero ma costante risultando il più stabile tra i tre.
 
 Parallelamente è stata introdotta la **normalizzazione delle immagini** (prima non sfruttata efficacemente nel task daynight).  
@@ -200,7 +199,7 @@ Questi esperimenti sono stati volutamente compatti e mirati:
 non è stato introdotto nuovo codice complesso, ma solo micro-ottimizzazioni per identificare l’optimizer più adatto e verificare l’impatto della normalizzazione nel setup VPR.
 
 
-### 5. Ricerca dei migliori campioni per place
+## 5. Ricerca dei migliori campioni per place
 Dopo vari esperimenti, la combinazione preferibile è risultata:
 
 - `train_samples_per_place = 4`  
@@ -214,34 +213,6 @@ risultando in:
 | 5 | 0.7083 |
 | 10 | 0.7788 |
 | 50 | 0.9006 |
-
-### 6. Generalizzazione del metodo di learning (Triplet → InfoNCE)
-Refactor completo per svincolare la pipeline dalla triplet loss.  
-Ora è possibile selezionare:
-
-- `learning_method: "triplet"`  
-- `learning_method: "infonce"`
-
-con un singolo parametro YAML.
-
-Test iniziale InfoNCE:
-
-- 4 samples train  
-- 2 samples val  
-- 32 places per batch  
-- AdamW  
-- Normalize attivo  
-- Temperature 0.05  
-
-**Recall@50 = 0.9038**
-
-Test con parametri ampliati:
-
-- 8 samples train  
-- 3 samples val  
-- 48 places per batch  
-
-**Recall@50 = 0.9134**
 
 ## 6. Generalizzazione del metodo di learning (Triplet → InfoNCE)
 
@@ -316,6 +287,52 @@ Molto del lavoro in questo capitolo è consistito nel:
 - validare che il tutto fosse compatibile con la pipeline già generalizzata.
 
 L’infrastruttura ora supporta due metodi di apprendimento completamente intercambiabili, permettendo ulteriori esplorazioni future senza modifiche strutturali alla pipeline.
+
+## 7. Hard Negative Mining — Implementazione, Accelerazioni e Risultati
+
+L’obiettivo era introdurre una forma di hard negative mining nella Triplet Loss, selezionando per ogni anchor il negativo più vicino nello spazio degli embedding. La procedura richiedeva il calcolo degli embedding globali e la ricerca del negativo più simile tramite indice ANN.
+
+### Implementazione
+
+1. **Computazione globale degli embedding**  
+   Implementata in `embedding.py` (`compute_global_embeddings()`), con:
+   - batch su GPU  
+   - mixed precision  
+   - normalizzazione L2  
+   - caching completo  
+
+2. **Indice ANN**  
+   Gestito tramite `NearestNeighbors` (cosine) per individuare i candidati più vicini.
+
+3. **Caching**  
+   Sviluppato in `cache_manager.py`, con refresh controllato da `hard_negative_cache_refresh_rate`.
+
+4. **Accelerazioni**  
+   - semihard negatives (top-20)  
+   - fallback lineare su top-k limitato  
+   - pre-filtraggio per place  
+
+5. **Integrazione nel dataloader**  
+   In `triplet_loader.py`, `_generate_triplets()` seleziona negativi randomici o hard a seconda delle impostazioni.
+
+### Costi computazionali
+
+Nonostante caching, ANN, semihard negatives e batch ottimizzati, i tempi di training aumentano sensibilmente rispetto alla selezione randomica dei negativi.
+
+### Risultati
+
+| k | Recall |
+|---|--------|
+| 1 | 0.5288 |
+| 5 | 0.7083 |
+| 10 | 0.7788 |
+| 50 | 0.9006 |
+
+I valori sono equivalenti alla selezione randomica, senza miglioramenti misurabili.
+
+### Conclusione
+
+Dato il costo elevato e l’assenza di benefici, la tecnica è stata accantonata. Potrà essere reintrodotta solo in fasi successive della pipeline o con loss più sensibili agli hard negatives.
 
 
 ## Risultati principali

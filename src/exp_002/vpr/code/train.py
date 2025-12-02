@@ -7,8 +7,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from models import MLPCosine
 from utils import get_n_folders, load_params
-from triplet_loader import get_dataloaders, refresh_dataloaders, run_triplet_epoch, get_triplet_loss
-from contrastive_loader import get_contrastive_dataloaders, get_supcon_loss, run_supcon_epoch, refresh_contrastive_dataloaders
+from learning_strategy import get_dataloaders, run_epoch, run_epoch_valid, refresh_dataloaders, get_loss_fn
+
+
 
 from settings import get_device, get_train_work_dir, init_optimizer_scheduler, set_seed, init_model
 
@@ -26,21 +27,10 @@ if __name__ == "__main__":
     
     n_epochs = params["train"]["n_epochs"]
     lr = params["train"]["lr"]
-    
-    if params["learning_method"] == "triplet":
-        train_loader, valid_loader, train_places, valid_places = get_dataloaders(
-            params["dataload"], params["train_dataset"], params["val_dataset"],
-            params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
-        )
-        loss_fn = get_triplet_loss()
-    elif params["learning_method"] == "infonce":
-        train_loader, valid_loader, train_places, valid_places = get_contrastive_dataloaders(
-            params["dataload"], params["train_dataset"], params["val_dataset"],
-            params["train_samples_per_place"], params["valid_samples_per_place"], params, params["seed"]
-        )
-        loss_fn = get_supcon_loss(temperature=params["train"]["temperature"])
-    else:
-        raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
+
+    train_loader, valid_loader, train_places, valid_places= get_dataloaders(params)
+    loss_fn = get_loss_fn(params)
+
     
     model = init_model(params, device)
     
@@ -57,14 +47,9 @@ if __name__ == "__main__":
     
     for epoch in range(n_epochs):
         print(f"Epoch {epoch+1}/{n_epochs}")
-        if params["learning_method"] == "triplet":
-            train_loss = run_triplet_epoch(model, train_loader, loss_fn, optimizer, train=True, device=device)
-            valid_loss = run_triplet_epoch(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
-        elif params["learning_method"] == "infonce":
-            train_loss = run_supcon_epoch(model, train_loader, loss_fn, optimizer, train=True, device=device)
-            valid_loss = run_supcon_epoch(model, valid_loader, loss_fn, optimizer=None, train=False, device=device)
-        else:
-            raise NotImplementedError(f"Learning method {params['learning_method']} not implemented.")
+
+        train_loss = run_epoch(model, train_loader, loss_fn, optimizer, params, device)
+        valid_loss = run_epoch_valid(model, valid_loader, loss_fn, params, device)
         
         writer.add_scalar("train/loss", train_loss, epoch)
         writer.add_scalar("valid/loss", valid_loss, epoch)
@@ -93,15 +78,7 @@ if __name__ == "__main__":
             break
         
         # --- rigenera triplets ogni epoca
-        if params["learning_method"] == "triplet":
-            train_loader, valid_loader = refresh_dataloaders(train_places, valid_places,
-                                                            params["train_samples_per_place"],
-                                                            params["valid_samples_per_place"], params)
-            
-        elif params["learning_method"] == "infonce":
-            train_loader, valid_loader = refresh_contrastive_dataloaders(train_places, valid_places,
-                                                            params["train_samples_per_place"],
-                                                            params["valid_samples_per_place"], params)
+        train_loader, valid_loader = refresh_dataloaders(train_places, valid_places, params)
         
     # salva il JSON dettagliato
     summary = {

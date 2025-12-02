@@ -14,7 +14,7 @@ from filter_loader_daynight import filter_paired_daynight
 from filter_loader_vpr import filter_paired_vpr
 
 # --- pubblica: restituisce DataLoader pronti per training/validazione
-def get_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per_place, valid_samples_per_place, params, seed):
+def get_triplet_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per_place, valid_samples_per_place, params, seed):
     train_places_paired, valid_places_paired = _load_and_split(dataload_mode, train_dataset, val_dataset, seed)
     train_triplets = _generate_triplets(train_places_paired, train_samples_per_place)
     valid_triplets = _generate_triplets(valid_places_paired, valid_samples_per_place)
@@ -34,7 +34,7 @@ def get_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per
     return train_loader, valid_loader, train_places_paired, valid_places_paired
 
 # --- pubblica: rigenera DataLoader a ogni epoca (stesso formato)
-def refresh_dataloaders(train_places, valid_places, train_samples_per_place, valid_samples_per_place, params):
+def refresh_triplet_dataloaders(train_places, valid_places, train_samples_per_place, valid_samples_per_place, params):
     train_triplets = _generate_triplets(train_places, train_samples_per_place)
     valid_triplets = _generate_triplets(valid_places, valid_samples_per_place)
     
