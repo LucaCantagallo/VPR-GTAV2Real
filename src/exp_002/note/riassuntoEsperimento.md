@@ -103,10 +103,10 @@ e con gli stessi parametri dell'esperimento precedente ha prodotto i seguenti va
 
 | k  | Recall |
 |----|---------|
-| 1  | 0.4300  |
-| 5  | 0.5827  |
-| 10 | 0.7064  |
-| 50 | 0.8578  |
+| 1  | 0.44  |
+| 5  | 0.68  |
+| 10 | 0.73  |
+| 50 | 0.84  |
 
 Questi costituiscono la **baseline ufficiale** del nuovo flusso VPR.
 

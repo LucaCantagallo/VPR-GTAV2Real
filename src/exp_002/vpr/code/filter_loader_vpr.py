@@ -31,7 +31,7 @@ def filter_paired_vpr(dataset_name, places):
             pairs.append([place[idx[0]], place[idx[1]]])
         return pairs
     
-    elif dataset_name == "gsv":
+    elif dataset_name == "gsv" or dataset_name == "gsv_valid" or dataset_name == "gsv_test":
         for place in places:
             if len(place) < 2:
                 continue

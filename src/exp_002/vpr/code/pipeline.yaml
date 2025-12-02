@@ -5,12 +5,12 @@ dataload: "vpr"
 learning_method: "triplet"  # "triplet"  #"infonce" #
 
 train_dataset: "gta"
-val_dataset: "gsv"
-test_dataset: "gsv"
+val_dataset: "gsv_valid"
+test_dataset: "gsv_test"
 
 work_dir: null
 
-save_dir: "run"
+save_dir: "vpr_exp"
 experiment: "-1"
 
 model:
@@ -21,10 +21,10 @@ model:
 train:
   use_center_crop: false
   use_random_crop: true
-  normalize: true
-  n_epochs: 1
+  normalize: false
+  n_epochs: 400
   lr: 1.e-4
-  batch_size: 128
+  batch_size: 256
 
   early_stopping: true
   patience: 10
@@ -44,6 +44,6 @@ evaluation:
   k: 50
 
 
-train_samples_per_place: 8
-valid_samples_per_place: 4
+train_samples_per_place: -1
+valid_samples_per_place: -1
 contrastive_places_per_batch: 32
