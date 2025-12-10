@@ -46,7 +46,7 @@ def _normalize(image_tensor, mean, std):
 # FUNZIONE PUBBLICA (Orchestratore)
 # --------------------------
 
-def preprocess_data(path, config, previous_crop=None):
+def preprocess_data(path, params, previous_crop=None):
     """
     Funzione unica di ingresso.
     Riceve il path e la configurazione (che simula lo yaml).
@@ -59,10 +59,10 @@ def preprocess_data(path, config, previous_crop=None):
 
     # 2. Gestione Logica Crop
     # Usa config.get() per replicare la lettura dei parametri
-    if config.get("use_center_crop", False):
+    if params.get("use_center_crop", False):
         img = _center_crop(img)
     
-    elif config.get("use_random_crop", False):
+    elif params.get("use_random_crop", False):
         if previous_crop is None:
             # Calcola nuovo crop
             side = min(img.shape[1], img.shape[2])
@@ -74,14 +74,14 @@ def preprocess_data(path, config, previous_crop=None):
         img = _apply_crop(img, crop_used)
 
     # 3. Resize
-    target_h = config.get("target_height", 224)
-    target_w = config.get("target_width", 224)
+    target_h = params.get("target_height", 224)
+    target_w = params.get("target_width", 224)
     img = _resize(img, target_h, target_w)
 
     # 4. Normalize
-    if config.get("normalize", False):
-        mean = config.get("mean", [0.485, 0.456, 0.406])
-        std = config.get("std", [0.229, 0.224, 0.225])
+    if params.get("normalize", False):
+        mean = params.get("mean", [0.485, 0.456, 0.406])
+        std = params.get("std", [0.229, 0.224, 0.225])
         img = _normalize(img, mean, std)
 
     return img, crop_used

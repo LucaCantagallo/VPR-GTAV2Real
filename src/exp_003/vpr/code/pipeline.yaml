@@ -1,23 +1,21 @@
 seed: 42
 
 dataload: "vpr"
-
-learning_method: "infonce"  # "triplet"  #"infonce" #
+learning_method: "infonce"
 
 train_dataset: "gta"
 val_dataset: "gsv_valid"
 test_dataset: "gsv_test"
 
 work_dir: null
-
 save_dir: "examples"
 experiment: "-1"
 
-preprocessing:
+_base_preprocessing: &base_preprocessing
   target_height: 224
   target_width: 224
   use_center_crop: false
-  use_random_crop: true
+  use_random_crop: false  
   normalize: true
   mean: [0.485, 0.456, 0.406]
   std: [0.229, 0.224, 0.225]
@@ -28,7 +26,11 @@ model:
   state_dict: null 
 
 train:
-  n_epochs: 1
+  preprocessing:
+    <<: *base_preprocessing
+    use_random_crop: true
+
+  n_epochs: 400
   lr: 1.e-4
   batch_size: 1
 
@@ -40,8 +42,8 @@ train:
   lr_factor: 0.5
   lr_patience: 3
   lr_min: 1.e-6
-
   weight_decay: 1.e-6
+
   optimizer: "adamw"
 
   temperature: 0.07
@@ -49,6 +51,9 @@ train:
 evaluation:
   k: 50
 
+test:
+  preprocessing:
+    <<: *base_preprocessing
 
 train_samples_per_place: 8
 valid_samples_per_place: 3

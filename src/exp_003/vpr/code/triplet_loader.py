@@ -1,4 +1,3 @@
-### triplet_loader.py
 import numpy as np
 from sklearn.model_selection import train_test_split
 from itertools import permutations, combinations
@@ -13,44 +12,75 @@ from places_extractor import extract_places
 from filter_loader_daynight import filter_paired_daynight
 from filter_loader_vpr import filter_paired_vpr
 
-# --- pubblica: restituisce DataLoader pronti per training/validazione
+# ---------------------------
+# DATASET AGGIORNATO
+# ---------------------------
+class TriCombinationDataset(BaseDataset):
+    def __init__(self, triplets, params):
+        super().__init__(paths=triplets, params=params)
+
+    def __getitem__(self, index):
+        paths = self.paths[index] # paths è una tripla [anchor, pos, neg]
+        
+        anchor, crop = self.__load__(paths[0])
+        positive, _ = self.__load__(paths[1], crop) 
+        negative, _ = self.__load__(paths[2])
+        
+        return anchor, positive, negative
+
+# ---------------------------
+# LOADERS PUBBLICI
+# ---------------------------
+
 def get_triplet_dataloaders(dataload_mode, train_dataset, val_dataset, train_samples_per_place, valid_samples_per_place, params, seed):
     train_places_paired, valid_places_paired = _load_and_split(dataload_mode, train_dataset, val_dataset, seed)
     train_triplets = _generate_triplets(train_places_paired, train_samples_per_place)
     valid_triplets = _generate_triplets(valid_places_paired, valid_samples_per_place)
     
-    train_loader = DataLoader(TriCombinationDataset(train_triplets, 
-                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
-                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
-                                                    normalize=params["preprocessing"]["normalize"]),
-                              batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8)
+    preprocessing_params = params["train"].get("preprocessing", {})
+
+    train_loader = DataLoader(
+        TriCombinationDataset(
+            triplets=train_triplets, 
+            params=preprocessing_params
+        ),
+        batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8
+    )
     
-    valid_loader = DataLoader(TriCombinationDataset(valid_triplets,
-                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
-                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
-                                                    normalize=params["preprocessing"]["normalize"]),
-                              batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8)
+    valid_loader = DataLoader(
+        TriCombinationDataset(
+            triplets=valid_triplets,
+            params=preprocessing_params
+        ),
+        batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8
+    )
     
     return train_loader, valid_loader, train_places_paired, valid_places_paired
 
-# --- pubblica: rigenera DataLoader a ogni epoca (stesso formato)
 def refresh_triplet_dataloaders(train_places, valid_places, train_samples_per_place, valid_samples_per_place, params):
     train_triplets = _generate_triplets(train_places, train_samples_per_place)
     valid_triplets = _generate_triplets(valid_places, valid_samples_per_place)
     
-    train_loader = DataLoader(TriCombinationDataset(train_triplets, 
-                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
-                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
-                                                    normalize=params["preprocessing"]["normalize"]),
-                              batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8)
+    preprocessing_params = params["train"].get("preprocessing", {})
+
+    train_loader = DataLoader(
+        TriCombinationDataset(
+            triplets=train_triplets, 
+            params=preprocessing_params
+        ),
+        batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8
+    )
     
-    valid_loader = DataLoader(TriCombinationDataset(valid_triplets,
-                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
-                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
-                                                    normalize=params["preprocessing"]["normalize"]),
-                              batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8)
+    valid_loader = DataLoader(
+        TriCombinationDataset(
+            triplets=valid_triplets,
+            params=preprocessing_params
+        ),
+        batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8
+    )
     
     return train_loader, valid_loader
+
 
 def run_triplet_epoch(model,
          dataloader,
@@ -125,18 +155,15 @@ def _generate_triplets(places, samples_per_place=3, use_combination=False):
         if num_images < 2:
             continue
 
-        # genera tutte le coppie anchor-positive
         if use_combination:
             pairs_idx = list(combinations(range(num_images), 2))
         else:
             pairs_idx = list(permutations(range(num_images), 2))
 
-        # campiona un sottoinsieme se richiesto
         if samples_per_place > 0 and len(pairs_idx) > samples_per_place:
             selected_idx = np.random.choice(len(pairs_idx), samples_per_place, replace=False)
             pairs_idx = [pairs_idx[i] for i in selected_idx]
 
-        # crea le triplette aggiungendo negative
         for anchor_idx, positive_idx in pairs_idx:
             anchor = place_images[anchor_idx]
             positive = place_images[positive_idx]
@@ -150,15 +177,3 @@ def _generate_triplets(places, samples_per_place=3, use_combination=False):
             triplets.append([str(anchor), str(positive), str(negative)])
 
     return triplets
-
-
-
-class TriCombinationDataset(BaseDataset):
-    def __getitem__(self, index):
-        paths = self.paths[index]
-        anchor, crop = self.__load__(paths[0])
-        positive, _ = self.__load__(paths[1], crop)
-        negative, _ = self.__load__(paths[2])
-        return anchor, positive, negative
-
-

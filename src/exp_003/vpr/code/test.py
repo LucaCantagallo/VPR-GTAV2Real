@@ -1,4 +1,4 @@
-## test.py
+### test.py
 
 import yaml
 import os
@@ -8,7 +8,6 @@ import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 import sys
 
 from triplet_loader import test_paired_loader
@@ -19,8 +18,11 @@ from utils import load_params
 from settings import get_device, get_test_work_dir, set_seed, init_model
 
 class TestDataset(BaseDataset):
+    def __init__(self, pairs, params):
+        super().__init__(paths=pairs, params=params)
+
     def __getitem__(self, index):
-        path_pair = self.paths[index]  # [file0, file1]
+        path_pair = self.paths[index]  
         img0, _ = self.__load__(path_pair[0])
         img1, _ = self.__load__(path_pair[1])
         return img0, img1
@@ -39,29 +41,27 @@ if __name__ == "__main__":
     config_file = "./pipeline.yaml"
     params = load_params(config_file)
 
-    # Inizializza cartella di lavoro (test)
     work_dir = get_test_work_dir(params, experiments_dir=experiments_dir)
     
-    # Imposta semi
     set_seed(params["seed"])
 
-    # Dataset e dataloader
     dataload_mode = params["dataload"]
     test_dataset = params["test_dataset"]
 
     test_places = test_paired_loader(dataload_mode, test_dataset)
 
-    dataset = TestDataset(test_places)
+    test_config = params["test"].get("preprocessing", {})
+
+    dataset = TestDataset(test_places, params=test_config)
+    
     dataloader = DataLoader(dataset, batch_size=params["train"]["batch_size"], shuffle=False, drop_last=False, pin_memory=True, num_workers=8, persistent_workers=False)
 
     model = init_model(params, device)
     model.eval()
 
-    # Trova tutti i checkpoint nella cartella
     model_paths = glob(os.path.join(work_dir, "*.pt"))
     model_names = [os.path.split(path)[-1].split(".")[0] for path in model_paths]
 
-    # Loop su ciascun checkpoint
     for j, path in enumerate(model_paths):
         model = MLPCosine.load_model_safely(model, path, device=device)
         model.to(device, non_blocking=True)
@@ -80,6 +80,3 @@ if __name__ == "__main__":
         labels_list = torch.cat(labels_list)
 
         compute_cm(features_list, labels_list, work_dir, model_names[j])
-
-
-

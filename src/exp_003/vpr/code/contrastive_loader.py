@@ -9,41 +9,34 @@ from tqdm import tqdm
 from dataset import BaseDataset
 from places_extractor import extract_places
 from filter_loader_daynight import filter_paired_daynight
-from filter_loader_vpr import filter_paired_vpr
+#from filter_loader_vpr import filter_paired_vpr
 from sklearn.model_selection import train_test_split
-from itertools import combinations
-from tqdm import tqdm
 
 
 # ---------------------------
 # DATASET
 # ---------------------------
 class SupConDataset(BaseDataset):
-    def __init__(self, batches, target_width=224, target_height=224,
-                 use_center_crop=False, use_random_crop=False, normalize=False,
-                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
-
+    def __init__(self, batches, params): # <--- Rinominato qui
         self.batches = batches
-        super().__init__(paths=[], target_width=target_width, target_height=target_height,
-                         use_center_crop=use_center_crop, use_random_crop=use_random_crop,
-                         normalize=normalize, mean=mean, std=std)
+        # Passiamo 'params' al genitore BaseDataset
+        super().__init__(paths=[], params=params)
 
     def __len__(self):
         return len(self.batches)
 
     def __getitem__(self, idx):
-        batch = self.batches[idx]   # lista di (path, label)
-
+        batch = self.batches[idx] 
         imgs = []
         labels = []
 
         for path, label in batch:
+            # __load__ userà internamente self.params
             img, _ = self.__load__(path, crop=None)
             imgs.append(img)
             labels.append(label)
 
         return torch.stack(imgs), torch.tensor(labels, dtype=torch.long)
-
 
 
 # ---------------------------
@@ -100,7 +93,7 @@ def _generate_supcon_batches(places, samples_per_place, places_per_batch=1):
 # ---------------------------
 def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
                                 train_samples_per_place, valid_samples_per_place,
-                                params, seed):
+                                params, seed): # 'params' qui è TUTTO lo YAML
 
     train_places, valid_places = _load_and_split(dataload_mode, train_dataset, val_dataset, seed)
 
@@ -108,20 +101,21 @@ def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
     train_batches = _generate_supcon_batches(train_places, train_samples_per_place, places_per_batch)
     valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place, places_per_batch)
 
+    preprocessing_params = params["train"].get("preprocessing", {}) 
 
     train_loader = DataLoader(
-        SupConDataset(train_batches,
-                      use_center_crop=params["preprocessing"]["use_center_crop"],
-                      use_random_crop=params["preprocessing"]["use_random_crop"],
-                      normalize=params["preprocessing"]["normalize"]),
+        SupConDataset(
+            batches=train_batches,
+            params=preprocessing_params
+        ),
         batch_size=1, shuffle=True, num_workers=8, collate_fn=lambda x: x[0]
     )
 
     valid_loader = DataLoader(
-        SupConDataset(valid_batches,
-                      use_center_crop=params["preprocessing"]["use_center_crop"],
-                      use_random_crop=params["preprocessing"]["use_random_crop"],
-                      normalize=params["preprocessing"]["normalize"]),
+        SupConDataset(
+            batches=valid_batches,
+            params=preprocessing_params
+        ),
         batch_size=1, shuffle=False, num_workers=8, collate_fn=lambda x: x[0]
     )
 
@@ -130,23 +124,18 @@ def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
 
 def refresh_contrastive_dataloaders(train_places, valid_places,
                                     train_samples_per_place, valid_samples_per_place, params):
+    preprocessing_params = params["train"].get("preprocessing", {})
 
     train_batches = _generate_supcon_batches(train_places, train_samples_per_place, params["contrastive_places_per_batch"])
     valid_batches = _generate_supcon_batches(valid_places, valid_samples_per_place, params["contrastive_places_per_batch"])
 
     train_loader = DataLoader(
-        SupConDataset(train_batches,
-                      use_center_crop=params["preprocessing"]["use_center_crop"],
-                      use_random_crop=params["preprocessing"]["use_random_crop"],
-                      normalize=params["preprocessing"]["normalize"]),
+        SupConDataset(batches=train_batches, params=preprocessing_params),
         batch_size=1, shuffle=True, num_workers=8, collate_fn=lambda x: x[0]
     )
 
     valid_loader = DataLoader(
-        SupConDataset(valid_batches,
-                      use_center_crop=params["preprocessing"]["use_center_crop"],
-                      use_random_crop=params["preprocessing"]["use_random_crop"],
-                      normalize=params["preprocessing"]["normalize"]),
+        SupConDataset(batches=valid_batches, params=preprocessing_params),
         batch_size=1, shuffle=False, num_workers=8, collate_fn=lambda x: x[0]
     )
 
