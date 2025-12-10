@@ -51,6 +51,7 @@ Gli aggiornamenti principali:
 - supporta **GTA**, **Alderley**, **Tokyo247**, **GSV**;  
 - rimuove logiche legate al giorno/notte;  
 - introduce il parametro `percentage` per campionare sottoinsiemi controllati;  
+- gestisce l'uso dello stesso dataset per più compiti (es. validation e testing), splittandolo in sottoinsiemi che mantengono la stessa varietà e garantiscono zero intersezioni di 'places'
 - adotta grouping coerente per ciascun dataset (ad es. grouping per place-id in GSV).
 
 Questa separazione rende il flusso indipendente dal tipo di dataset di training, validation o testing.
@@ -81,8 +82,8 @@ Il flusso training/validation/testing ora è unificato:
 Il refactor introduce una configurazione standardizzata:
 
 - **train_dataset**: GTA  
-- **validation_dataset**: GSV (subset)  
-- **test_dataset**: GSV (subset)
+- **validation_dataset**: GSV (subset indipendente dal testing set)  
+- **test_dataset**: GSV (subset indipendente dal validation set)
 
 Questo setup permette una baseline VPR completamente generalizzabile.  
 
@@ -91,22 +92,17 @@ Oltre alla generalizzazione, il refactor garantisce ora:
 - directory di lavoro coerenti (`get_train_work_dir()` e `get_test_work_dir()`);  
 - separazione chiara tra logica modello (`init_model`) e logica esperimento;  
 - codice pronto per estendere futuri task senza modificare il core.
+
 ### Risultati baseline VPR
 
-L’esperimento di riferimento, eseguito con la pipeline refactorizzata e il setup:
-
-- **train**: GTA  
-- **val**: GSV (subset)  
-- **test**: GSV (subset)
-
-e con gli stessi parametri dell'esperimento precedente ha prodotto i seguenti valori di **recall@k**:
+L’esperimento di riferimento, eseguito con la pipeline refactorizzata e con gli stessi parametri dell'esperimento precedente ha prodotto i seguenti valori di **recall@k**:
 
 | k  | Recall |
 |----|---------|
-| 1  | 0.44  |
-| 5  | 0.68  |
-| 10 | 0.73  |
-| 50 | 0.84  |
+| 1  | 0.4011  |
+| 5  | 0.5987  |
+| **10** | **0.6402**  |
+| 50 | 0.8147  |
 
 Questi costituiscono la **baseline ufficiale** del nuovo flusso VPR.
 
@@ -171,12 +167,12 @@ Grazie alla generalizzazione del generatore di triplette ora è possibile:
 
 ### Risultati con l’estensione a 2 triplette per place per training e validation
 
-| k | Recall |
-|---|--------|
-| 1 | 0.5064 |
-| 5 | 0.7083 |
-| 10 | 0.7692 |
-| 50 | 0.8910 |
+| k  | Recall |
+|----|---------|
+| 1  | 0.4126  |
+| 5  | 0.6217  |
+| **10** | **0.7019**  |
+| 50 | 0.8878  |
 
 ## 4. Scelta dell’optimizer e normalizzazione immagini
 
@@ -191,9 +187,12 @@ Grazie alla generalizzazione del generatore di triplette ora è possibile:
 Parallelamente è stata introdotta la **normalizzazione delle immagini** (prima non sfruttata efficacemente nel task daynight).  
 Nel contesto VPR, al contrario, la normalizzazione fornisce un beneficio misurabile:
 
-| k  | Recall (norm. attiva) |
-|----|------------------------|
-| 50 | 0.8942                 |
+| k  | Recall |
+|----|---------|
+| 1  | 0.4134  |
+| 5  | 0.6346  |
+| **10** | **0.7179**  |
+| 50 | 0.8974  |
 
 Questi esperimenti sono stati volutamente compatti e mirati:  
 non è stato introdotto nuovo codice complesso, ma solo micro-ottimizzazioni per identificare l’optimizer più adatto e verificare l’impatto della normalizzazione nel setup VPR.
@@ -209,10 +208,10 @@ risultando in:
 
 | k | Recall |
 |---|--------|
-| 1 | 0.5288 |
-| 5 | 0.7083 |
-| 10 | 0.7788 |
-| 50 | 0.9006 |
+| 1 | 0.4358 |
+| 5 | 0.6474 |
+| **10** | **0.7211** |
+| 50 | 0.9038 |
 
 ## 6. Generalizzazione del metodo di learning (Triplet → InfoNCE)
 
@@ -264,7 +263,12 @@ La pipeline era limitata alla Triplet Loss; questa estensione ha richiesto imple
 - Normalize attivo  
 - Temperature 0.05  
 
-**Recall@50 = 0.9038**
+| k | Recall |
+|---|--------|
+| 1 | 0.3717 |
+| 5 | 0.5769 |
+| **10** | **0.6891** |
+| 50 | 0.8942 |
 
 ### Test estesi
 
@@ -274,7 +278,12 @@ Ampliando i parametri:
 - 3 samples val  
 - 48 places per batch  
 
-**Recall@50 = 0.9134**
+| k | Recall |
+|---|--------|
+| 1 | 0.4070 |
+| 5 | 0.6538 |
+| **10** | **0.7371** |
+| 50 | 0.9262 |
 
 ### Considerazioni sul miglioramento
 
@@ -323,12 +332,12 @@ Nonostante caching, ANN, semihard negatives e batch ottimizzati, i tempi di trai
 
 | k | Recall |
 |---|--------|
-| 1 | 0.5288 |
-| 5 | 0.7083 |
-| 10 | 0.7788 |
-| 50 | 0.9006 |
+| 1 | 0.4290 |
+| 5 | 0.6512 |
+| **10** | **0.6945** |
+| 50 | 0.8876 |
 
-I valori sono equivalenti alla selezione randomica, senza miglioramenti misurabili.
+I valori sono molto simili alla selezione randomica, senza miglioramenti misurabili.
 
 ### Conclusione
 
@@ -337,14 +346,15 @@ Dato il costo elevato e l’assenza di benefici, la tecnica è stata accantonata
 
 ## Risultati principali
 
-| Configurazione | Metodo | Recall@50 |
-|----------------|--------|------------|
-| 1 train / 1 val (**baseline VPR**) | Triplet | 0.8578 |
-| 2 train / 2 val | Triplet | 0.8910 |
-| Normalizzazione | Triplet | 0.8942 |
-| 4 train / 2 val | **Triplet** | **0.9006** |
-| 4 train / 2 val | InfoNCE | 0.9038 |
-| 8 train / 3 val | **InfoNCE** | **0.9134** |
+| Configurazione | Metodo | Recall@1 | Recall@5 | **Recall@10** | Recall@50 |
+|----------------|--------|------------|------------|------------|------------|
+| 1 train / 1 val (**baseline VPR**) | Triplet | 0.4011 | 0.5987 | 0.6402 | 0.8147 |
+| 2 train / 2 val | Triplet | 0.4126 | 0.6217 | 0.7019 | 0.8878 |
+| Normalizzazione | Triplet | 0.4134 | 0.6346 | 0.7179 | 0.8974 |
+| 4 train / 2 val | Triplet | 0.4358 | 0.6474 | 0.7211 | 0.9038 |
+| Hard Negative   | Triplet | 0.4290 | 0.6512 | 0.6945 | 0.8876 |
+| 4 train / 2 val | InfoNCE | 0.3717 | 0.5769 | 0.6891 | 0.8942 |
+| 8 train / 3 val | InfoNCE | 0.4070 | 0.6538 | 0.7371 | 0.9262 |
 
 ---
 
@@ -354,27 +364,27 @@ Dato il costo elevato e l’assenza di benefici, la tecnica è stata accantonata
 2. La pipeline VPR generalizzata permette esperimenti più realistici rispetto al daynight.  
 3. Le triplette multiple hanno dato un boost immediato alla performance.  
 4. AdamW risulta migliore di Adam in modo costante.  
-5. La normalizzazione è decisiva nel contesto VPR.  
-6. InfoNCE supera Triplet in tutte le configurazioni testate.  
-7. L’aumento dei samples per place migliora fino a un plateau.  
-8. La pipeline è ora più modulare, estendibile e pronta a tecniche più avanzate.
+5. La normalizzazione è decisiva nel contesto VPR.    
+6. L’aumento dei samples per place migliora fino a un plateau.  
+7. La pipeline è ora più modulare, estendibile e pronta a tecniche più avanzate.
 
 ---
 
-## Combinazione più performante (finora)
+## Combinazioni più performanti
 
-| Metodo | Parametri principali | Recall@50 |
-|--------|-----------------------|------------|
-| **InfoNCE** | 8 train, 3 val, 48 places per batch | **0.9134** |
+| Metodo | Parametri principali | Recall@1 | Recall@5 | **Recall@10** | Recall@50 |
+|--------|-----------------------|------------|---|---|---|
+|**Triplet**| 4 train, 2 val | 0.4358 | 0.6474 | **0.7211** | 0.9038 |
+| **InfoNCE** | 8 train, 3 val, 48 places per batch | 0.4070 | 0.6538 | **0.7371** | 0.9262 |
 
 ---
 
 ## Conclusioni
 
-- Il training è passato da 400 a ~25 epoche mantenendo o migliorando la performance.  
-- La pipeline è ora completamente generalizzata e configurabile via YAML.  
-- Triplette multiple, AdamW e normalizzazione hanno migliorato in modo incrementale la qualità.  
-- InfoNCE rappresenta il salto più grande in performance e flessibilità.  
+- Il training è passato **da 400 a ~25 epoche** mantenendo o migliorando la performance.  
+- La **pipeline** è ora completamente **generalizzata** e configurabile via YAML.  
+- Triplette multiple, **AdamW** e **normalizzazione** hanno **migliorato** in modo incrementale la qualità.  
+- InfoNCE rappresenta un'ottima alternativa da esplorare in termini di performance e flessibilità; la **coesistenza** delle loss **Triplet e InfoNCE** sarà sfruttata per valutarne l'efficacia in diverse condizioni.
 - La pipeline è robusta, modulare e pronta a estensioni avanzate.
 
 ---
