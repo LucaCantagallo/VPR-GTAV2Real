@@ -111,17 +111,17 @@ def get_contrastive_dataloaders(dataload_mode, train_dataset, val_dataset,
 
     train_loader = DataLoader(
         SupConDataset(train_batches,
-                      use_center_crop=params["train"]["use_center_crop"],
-                      use_random_crop=params["train"]["use_random_crop"],
-                      normalize=params["train"]["normalize"]),
+                      use_center_crop=params["preprocessing"]["use_center_crop"],
+                      use_random_crop=params["preprocessing"]["use_random_crop"],
+                      normalize=params["preprocessing"]["normalize"]),
         batch_size=1, shuffle=True, num_workers=8, collate_fn=lambda x: x[0]
     )
 
     valid_loader = DataLoader(
         SupConDataset(valid_batches,
-                      use_center_crop=params["train"]["use_center_crop"],
-                      use_random_crop=params["train"]["use_random_crop"],
-                      normalize=params["train"]["normalize"]),
+                      use_center_crop=params["preprocessing"]["use_center_crop"],
+                      use_random_crop=params["preprocessing"]["use_random_crop"],
+                      normalize=params["preprocessing"]["normalize"]),
         batch_size=1, shuffle=False, num_workers=8, collate_fn=lambda x: x[0]
     )
 
@@ -136,17 +136,17 @@ def refresh_contrastive_dataloaders(train_places, valid_places,
 
     train_loader = DataLoader(
         SupConDataset(train_batches,
-                      use_center_crop=params["train"]["use_center_crop"],
-                      use_random_crop=params["train"]["use_random_crop"],
-                      normalize=params["train"]["normalize"]),
+                      use_center_crop=params["preprocessing"]["use_center_crop"],
+                      use_random_crop=params["preprocessing"]["use_random_crop"],
+                      normalize=params["preprocessing"]["normalize"]),
         batch_size=1, shuffle=True, num_workers=8, collate_fn=lambda x: x[0]
     )
 
     valid_loader = DataLoader(
         SupConDataset(valid_batches,
-                      use_center_crop=params["train"]["use_center_crop"],
-                      use_random_crop=params["train"]["use_random_crop"],
-                      normalize=params["train"]["normalize"]),
+                      use_center_crop=params["preprocessing"]["use_center_crop"],
+                      use_random_crop=params["preprocessing"]["use_random_crop"],
+                      normalize=params["preprocessing"]["normalize"]),
         batch_size=1, shuffle=False, num_workers=8, collate_fn=lambda x: x[0]
     )
 

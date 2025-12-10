@@ -20,15 +20,15 @@ def get_triplet_dataloaders(dataload_mode, train_dataset, val_dataset, train_sam
     valid_triplets = _generate_triplets(valid_places_paired, valid_samples_per_place)
     
     train_loader = DataLoader(TriCombinationDataset(train_triplets, 
-                                                    use_center_crop=params["train"]["use_center_crop"],
-                                                    use_random_crop=params["train"]["use_random_crop"],
-                                                    normalize=params["train"]["normalize"]),
+                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
+                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
+                                                    normalize=params["preprocessing"]["normalize"]),
                               batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8)
     
     valid_loader = DataLoader(TriCombinationDataset(valid_triplets,
-                                                    use_center_crop=params["train"]["use_center_crop"],
-                                                    use_random_crop=params["train"]["use_random_crop"],
-                                                    normalize=params["train"]["normalize"]),
+                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
+                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
+                                                    normalize=params["preprocessing"]["normalize"]),
                               batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8)
     
     return train_loader, valid_loader, train_places_paired, valid_places_paired
@@ -39,15 +39,15 @@ def refresh_triplet_dataloaders(train_places, valid_places, train_samples_per_pl
     valid_triplets = _generate_triplets(valid_places, valid_samples_per_place)
     
     train_loader = DataLoader(TriCombinationDataset(train_triplets, 
-                                                    use_center_crop=params["train"]["use_center_crop"],
-                                                    use_random_crop=params["train"]["use_random_crop"],
-                                                    normalize=params["train"]["normalize"]),
+                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
+                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
+                                                    normalize=params["preprocessing"]["normalize"]),
                               batch_size=params["train"]["batch_size"], shuffle=True, num_workers=8)
     
     valid_loader = DataLoader(TriCombinationDataset(valid_triplets,
-                                                    use_center_crop=params["train"]["use_center_crop"],
-                                                    use_random_crop=params["train"]["use_random_crop"],
-                                                    normalize=params["train"]["normalize"]),
+                                                    use_center_crop=params["preprocessing"]["use_center_crop"],
+                                                    use_random_crop=params["preprocessing"]["use_random_crop"],
+                                                    normalize=params["preprocessing"]["normalize"]),
                               batch_size=params["train"]["batch_size"], shuffle=False, num_workers=8)
     
     return train_loader, valid_loader
