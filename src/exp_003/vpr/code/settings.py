@@ -87,8 +87,7 @@ def init_optimizer_scheduler(model, params):
         mode='min',
         factor=params["train"].get("lr_factor", 0.5),
         patience=params["train"].get("lr_patience", 5),
-        min_lr=params["train"].get("lr_min", 1e-6),
-        verbose=True
+        min_lr=params["train"].get("lr_min", 1e-6)
     ) if params["train"].get("reduce_lr_on_plateau", False) else None
     return optimizer, scheduler
 

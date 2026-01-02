@@ -30,7 +30,7 @@ train:
     <<: *base_preprocessing
     use_random_crop: true
 
-  n_epochs: 400
+  n_epochs: 50
   lr: 1.e-4
   batch_size: 1
 
