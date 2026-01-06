@@ -98,9 +98,56 @@ L'esperimento ha portato a un **degrado significativo** delle performance rispet
 | :--- | :---: | :---: | :---: |
 | **Top-1** | **46.47%** | 43.59% | **-2.88%** |
 | **Top-5** | **67.31%** | 66.03% | -1.28% |
+| **Top-10** | **75.96%** | 75.64% | -0.32% |
 | **Top-50** | **93.59%** | 91.99% | -1.60% |
 
 ### Conclusioni
 L'ipotesi che la sfocatura aiutasse la generalizzazione è stata smentita dai dati.
 La rimozione dei dettagli ad alta frequenza ha impedito alla rete di apprendere feature geometriche fini (es. pattern architettonici, contorni netti degli edifici) necessarie per la discriminazione fine dei luoghi. Il costo computazionale aggiuntivo (raddoppio del tempo per epoca) non è giustificato.
+La tecnica viene **disabilitata**.
+
+---
+
+## 4. Analisi Data Augmentation: Random Horizontal Flip
+
+Dopo aver scartato le modifiche cromatiche (Grayscale) e di texture (Blur), si è testata una trasformazione geometrica "lossless": il ribaltamento orizzontale (*Random Horizontal Flip*).
+
+### Ipotesi
+L'obiettivo era rendere il modello invariante rispetto alla direzione laterale, aumentando artificialmente la diversità del training set senza degradare la qualità dell'immagine.
+
+### Risultati
+Anche in questo caso si registra una lieve regressione rispetto alla Baseline.
+
+| Metrica | Baseline (%) | Horizontal Flip ($p=0.5$) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 46.15% | -0.32% |
+| **Top-5** | **67.31%** | 66.02% | -1.29% |
+| **Top-10** | **75.96%** | 75.32% | -0.64% |
+| **Top-50** | **93.59%** | 93.27% | -0.32% |
+
+### Conclusioni
+Il leggero calo indica che nella *Visual Place Recognition* urbana la geometria laterale è una feature discriminante (es. posizione della carreggiata, disposizione degli edifici rispetto alla strada). L'augmentation introduce un "rumore geometrico" che non aiuta il trasferimento dal dominio sintetico a quello reale.
+La tecnica viene **disabilitata**.
+
+---
+
+## 5. Analisi Data Augmentation: Random Resized Crop
+
+Come ulteriore tentativo geometrico, si è introdotto il *Random Resized Crop* (RRC), che simula variazioni di scala (zoom) e di rapporto d'aspetto.
+
+### Ipotesi
+L'idea era rendere la rete robusta a variazioni di distanza e scala, insegnando che un luogo rimane identico anche se visto più da vicino (zoom-in) o con deformazioni prospettiche lievi.
+
+### Risultati
+L'esperimento ha causato un peggioramento delle performance su tutte le metriche.
+
+| Metrica | Baseline (%) | Resized Crop (Scale 0.4-1.0) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 44.55% | -1.92% |
+| **Top-5** | **67.31%** | 64.74% | -2.57% |
+| **Top-10** | **75.96%** | 74.36% | -1.60% |
+| **Top-50** | **93.59%** | 92.95% | -0.64% |
+
+### Conclusioni
+La perdita di contesto globale causata dal crop ha impattato negativamente. Nella *Place Recognition*, la disposizione relativa degli elementi (es. "l'albero è a sinistra del palazzo") è cruciale. RRC altera o rimuove queste relazioni spaziali.
 La tecnica viene **disabilitata**.
