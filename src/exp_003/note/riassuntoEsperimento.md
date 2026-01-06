@@ -78,3 +78,29 @@ L'esperimento ha evidenziato una **lieve regressione** delle performance.
 * Il calo più marcato sulla **Top-50 (-1.92%)** suggerisce che il colore agisce come importante fattore di disambiguazione per i candidati "difficili".
 
 Alla luce di questi dati, la tecnica viene momentaneamente **disabilitata** per procedere con test su trasformazioni che agiscano sulla texture (es. *Gaussian Blur*) piuttosto che sulla cromia, mantenendo il codice integrato nell'orchestratore per futuri utilizzi combinati.
+
+---
+
+## 3. Analisi Data Augmentation: Gaussian Blur
+
+Dopo i risultati non conclusivi del *Grayscale*, si è tentato di ridurre il domain gap agendo sulla "texture" delle immagini. Le immagini sintetiche (GTA) sono caratterizzate da una nitidezza innaturale e bordi estremamente definiti rispetto alle immagini reali (GSV), spesso affette da motion blur o focus imperfetto.
+
+### Configurazione Esperimento
+* **Tecnica:** Gaussian Blur (Sfocatura Gaussiana).
+* **Probabilità ($p$):** 0.5 (50% delle immagini).
+* **Kernel Size:** [5, 5].
+* **Sigma:** [0.1, 2.0].
+
+### Risultati
+L'esperimento ha portato a un **degrado significativo** delle performance rispetto alla Baseline.
+
+| Metrica | Baseline (%) | Gaussian Blur ($p=0.5$) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 43.59% | **-2.88%** |
+| **Top-5** | **67.31%** | 66.03% | -1.28% |
+| **Top-50** | **93.59%** | 91.99% | -1.60% |
+
+### Conclusioni
+L'ipotesi che la sfocatura aiutasse la generalizzazione è stata smentita dai dati.
+La rimozione dei dettagli ad alta frequenza ha impedito alla rete di apprendere feature geometriche fini (es. pattern architettonici, contorni netti degli edifici) necessarie per la discriminazione fine dei luoghi. Il costo computazionale aggiuntivo (raddoppio del tempo per epoca) non è giustificato.
+La tecnica viene **disabilitata**.
