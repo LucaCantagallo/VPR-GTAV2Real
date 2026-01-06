@@ -46,3 +46,35 @@ preprocessing:
   std: [0.229, 0.224, 0.225]
 ```
 Questa modifica abilita **Test A/B** immediati e garantisce che l'aggiunta di filtri complessi (come quelli analizzati nella sezione successiva) non alteri la logica di caricamento dati.
+
+---
+
+## 2. Analisi Preliminare Data Augmentation: Random Grayscale
+
+Una volta consolidata l'infrastruttura di preprocessing, è stato condotto un primo esperimento mirato alla riduzione del *Domain Gap* tra il dataset sintetico (GTA V) e quello reale (GSV-Cities).
+
+### Ipotesi
+L'ipotesi di partenza è che la rete neurale possa sovra-adattarsi ("overfitting") alle caratteristiche cromatiche specifiche del motore grafico di GTA V (palette colori satura, illuminazione perfetta). Introducendo una conversione casuale in scala di grigi (`Random Grayscale`), si intende forzare il modello a concentrarsi sulle caratteristiche geometriche e strutturali della scena (forme degli edifici, skyline, layout stradale), teoricamente più robuste al cambio di dominio.
+
+### Configurazione Esperimento
+* **Tecnica:** Random Grayscale (mantenendo 3 canali in output per compatibilità ResNet).
+* **Probabilità di applicazione ($p$):** 0.2 (20% delle immagini di training).
+* **Dataset Training:** GTA V.
+* **Dataset Validation:** GSV-Cities (Valid).
+
+### Risultati e Confronto
+Di seguito il confronto delle metriche di Recall@K tra la Baseline (nessuna augmentation colore) e l'esperimento con Grayscale.
+
+| Metrica | Baseline (%) | Grayscale ($p=0.2$) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 45.83% | -0.64% |
+| **Top-5** | **67.31%** | 66.02% | -1.29% |
+| **Top-10** | **75.96%** | 75.64% | -0.32% |
+| **Top-50** | **93.59%** | 91.67% | -1.92% |
+
+### Conclusioni Parziali
+L'esperimento ha evidenziato una **lieve regressione** delle performance.
+* Il calo contenuto sulla **Top-1 (-0.64%)** indica che le feature geometriche sono state apprese, ma la perdita dell'informazione cromatica ha ridotto la capacità discriminativa fine.
+* Il calo più marcato sulla **Top-50 (-1.92%)** suggerisce che il colore agisce come importante fattore di disambiguazione per i candidati "difficili".
+
+Alla luce di questi dati, la tecnica viene momentaneamente **disabilitata** per procedere con test su trasformazioni che agiscano sulla texture (es. *Gaussian Blur*) piuttosto che sulla cromia, mantenendo il codice integrato nell'orchestratore per futuri utilizzi combinati.

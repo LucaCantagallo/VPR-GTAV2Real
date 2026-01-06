@@ -16,6 +16,7 @@ _base_preprocessing: &base_preprocessing
   target_width: 224
   use_center_crop: false
   use_random_crop: false  
+  grayscale_p: 0.0
   normalize: true
   mean: [0.485, 0.456, 0.406]
   std: [0.229, 0.224, 0.225]
@@ -29,6 +30,8 @@ train:
   preprocessing:
     <<: *base_preprocessing
     use_random_crop: true
+    use_random_grayscale: false
+    grayscale_p: 0.0
 
   n_epochs: 50
   lr: 1.e-4

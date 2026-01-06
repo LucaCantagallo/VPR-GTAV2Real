@@ -41,6 +41,12 @@ def _normalize(image_tensor, mean, std):
     """Normalizza con media e deviazione standard"""
     return functional.normalize(image_tensor, mean, std)
 
+def _random_grayscale(image_tensor, p):
+    if np.random.random() < p:
+        return functional.rgb_to_grayscale(image_tensor, num_output_channels=3)
+    return image_tensor
+
+
 
 # --------------------------
 # FUNZIONE PUBBLICA (Orchestratore)
@@ -73,6 +79,9 @@ def preprocess_data(path, params, previous_crop=None):
         
         img = _apply_crop(img, crop_used)
 
+    if params.get("use_random_grayscale", False):
+        img = _random_grayscale(img, params.get("grayscale_p", 0.1))
+        
     # 3. Resize
     target_h = params.get("target_height", 224)
     target_w = params.get("target_width", 224)
