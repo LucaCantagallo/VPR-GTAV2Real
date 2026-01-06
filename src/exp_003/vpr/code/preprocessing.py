@@ -46,7 +46,11 @@ def _random_grayscale(image_tensor, p):
         return functional.rgb_to_grayscale(image_tensor, num_output_channels=3)
     return image_tensor
 
-
+def _random_gaussian_blur(image_tensor, p, kernel_size, sigma_range):
+    if np.random.random() < p:
+        sigma = np.random.uniform(sigma_range[0], sigma_range[1])
+        return functional.gaussian_blur(image_tensor, kernel_size=kernel_size, sigma=[sigma, sigma])
+    return image_tensor
 
 # --------------------------
 # FUNZIONE PUBBLICA (Orchestratore)
@@ -81,7 +85,12 @@ def preprocess_data(path, params, previous_crop=None):
 
     if params.get("use_random_grayscale", False):
         img = _random_grayscale(img, params.get("grayscale_p", 0.1))
-        
+
+    if params.get("use_gaussian_blur", False):
+            kernel_size = params.get("blur_kernel_size", [5, 5])
+            sigma_range = params.get("blur_sigma", [0.1, 2.0])
+            p = params.get("blur_p", 0.5)
+            img = _random_gaussian_blur(img, p, kernel_size, sigma_range)        
     # 3. Resize
     target_h = params.get("target_height", 224)
     target_w = params.get("target_width", 224)
