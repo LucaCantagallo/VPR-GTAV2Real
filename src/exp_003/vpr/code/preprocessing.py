@@ -1,7 +1,8 @@
+import math
 import numpy as np
 import torch
 from PIL import Image
-from torchvision.transforms import functional
+from torchvision.transforms import functional, ColorJitter
 
 # --------------------------
 # FUNZIONI PRIVATE (Mattoncini)
@@ -58,6 +59,34 @@ def _random_horizontal_flip(image_tensor, p):
         return functional.hflip(image_tensor)
     return image_tensor
 
+def _random_erasing(img_tensor, p, scale, ratio, value=0):
+    """
+    Simula occlusione cancellando un rettangolo casuale.
+    scale: range di percentuale area cancellata (es. 0.02 a 0.33)
+    ratio: range aspect ratio del rettangolo (es. 0.3 a 3.3)
+    """
+    if np.random.random() < p:
+        c, h, w = img_tensor.shape
+        area = h * w
+        
+        target_area = np.random.uniform(scale[0], scale[1]) * area
+        aspect_ratio = np.random.uniform(ratio[0], ratio[1])
+        
+        h_erase = int(round(math.sqrt(target_area * aspect_ratio)))
+        w_erase = int(round(math.sqrt(target_area / aspect_ratio)))
+        
+        if w_erase < w and h_erase < h:
+            i = np.random.randint(0, h - h_erase + 1)
+            j = np.random.randint(0, w - w_erase + 1)
+            
+            # Applica cancellazione (inplace simulation o return new)
+            # functional.erase vuole tensor, i, j, h, w, v
+            # v deve essere un tensore broadcastable su img_tensor
+            v = torch.ones((c, h_erase, w_erase)) * value
+            img_tensor[:, i:i+h_erase, j:j+w_erase] = v
+            
+    return img_tensor
+
 def _get_random_resized_crop_params(img_tensor, scale, ratio):
     """Calcola i parametri i, j, h, w per il Random Resized Crop"""
     c, h, w = img_tensor.shape
@@ -92,6 +121,10 @@ def _get_random_resized_crop_params(img_tensor, scale, ratio):
         i = (h - h_crop) // 2
         j = (w - w_crop) // 2
         return i, j, h_crop, w_crop
+
+def _apply_color_jitter(image_tensor, brightness, contrast, saturation, hue):
+    jitter = ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+    return jitter(image_tensor)
 # --------------------------
 # FUNZIONE PUBBLICA (Orchestratore)
 # --------------------------
@@ -146,11 +179,22 @@ def preprocess_data(path, params, previous_crop=None):
             sigma_range = params.get("blur_sigma", [0.1, 2.0])
             p = params.get("blur_p", 0.5)
             img = _random_gaussian_blur(img, p, kernel_size, sigma_range)        
+    if params.get("use_color_jitter", False):
+        brightness = params.get("jitter_brightness", 0.0)
+        contrast = params.get("jitter_contrast", 0.0)
+        saturation = params.get("jitter_saturation", 0.0)
+        hue = params.get("jitter_hue", 0.0)
+        img = _apply_color_jitter(img, brightness, contrast, saturation, hue)
     # 3. Resize
     target_h = params.get("target_height", 224)
     target_w = params.get("target_width", 224)
     img = _resize(img, target_h, target_w)
 
+    if params.get("use_random_erasing", False):
+        p = params.get("erasing_p", 0.5)
+        scale = params.get("erasing_scale", [0.02, 0.33])
+        ratio = params.get("erasing_ratio", [0.3, 3.3])
+        img = _random_erasing(img, p, scale, ratio, value=0)
     # 4. Normalize
     if params.get("normalize", False):
         mean = params.get("mean", [0.485, 0.456, 0.406])

@@ -151,3 +151,52 @@ L'esperimento ha causato un peggioramento delle performance su tutte le metriche
 ### Conclusioni
 La perdita di contesto globale causata dal crop ha impattato negativamente. Nella *Place Recognition*, la disposizione relativa degli elementi (es. "l'albero è a sinistra del palazzo") è cruciale. RRC altera o rimuove queste relazioni spaziali.
 La tecnica viene **disabilitata**.
+
+---
+
+## 6. Analisi Data Augmentation: Random Erasing
+
+Per simulare le occlusioni tipiche degli ambienti urbani reali (pedoni, auto, vegetazione), si è testato il *Random Erasing*, che sovrascrive rettangoli casuali dell'immagine con valori nulli (nero).
+
+### Ipotesi
+L'obiettivo era forzare la rete a riconoscere i luoghi basandosi su porzioni parziali della scena, aumentandone la robustezza contro gli ostacoli visivi presenti nel dataset di test (GSV).
+
+### Risultati
+L'introduzione di occlusioni artificiali ha degradato le performance, indicando che la perdita di informazione visiva ostacola l'apprendimento delle feature discriminative.
+
+| Metrica | Baseline (%) | Random Erasing ($p=0.5$) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 44.23% | -2.24% |
+| **Top-5** | **67.31%** | 65.38% | -1.93% |
+| **Top-10** | **75.96%** | 74.68% | -1.28% |
+| **Top-50** | **93.59%** | 91.67% | -1.92% |
+
+### Conclusioni
+La tecnica ha rimosso dettagli utili senza offrire benefici di generalizzazione. Probabilmente, dato il domain gap già ampio, la rete necessita di visuali pulite per ancorare le feature sintetiche a quelle reali.
+La tecnica viene **disabilitata**.
+
+---
+
+## 7. Analisi Data Augmentation: Color Jitter (Photometric Distortions)
+
+Come ultimo tentativo di augmentation, si è testata la manipolazione fotometrica tramite *Color Jitter* (luminosità, contrasto, saturazione), mantenendo parametri conservativi per evitare distorsioni irrealistiche.
+
+### Configurazione Esperimento
+* **Brightness, Contrast, Saturation:** 0.3 ($\pm$30%).
+* **Hue:** 0.05 (variazione minima).
+* **Impatto Computazionale:** Rallentamento significativo del training (CPU bottleneck).
+
+### Risultati
+Anche l'alterazione dei colori ha portato a un calo delle performance, seppur contenuto.
+
+| Metrica | Baseline (%) | Color Jitter (Soft) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Top-1** | **46.47%** | 45.51% | -0.96% |
+| **Top-5** | **67.31%** | 65.71% | -1.60% |
+| **Top-10** | **75.96%** | 75.32% | -0.64% |
+| **Top-50** | **93.59%** | 92.95% | -0.64% |
+
+### Conclusioni Generali Fase Preprocessing
+Al termine di 6 esperimenti mirati (Grayscale, Blur, Flip, Resized Crop, Erasing, Jitter), i dati indicano chiaramente che **le tecniche standard di Data Augmentation non sono efficaci per il task Syn2Real (GTA $\to$ GSV)** con l'attuale architettura.
+Ogni alterazione dell'input sintetico ha ridotto la capacità discriminativa del modello. La pulizia del dato GTA sembra essere un asset fondamentale per l'apprendimento delle feature strutturali, più che un difetto da mascherare.
+La pipeline di produzione verrà quindi configurata sulla **Baseline (Minimal Preprocessing)**.
