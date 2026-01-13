@@ -5,3 +5,8 @@ experiments/
 reportImages/
 telegram.yaml
 raccolta_completa.txt
+errors_analysis/
+visualize_errors.py
+ProjectContextExtractor/
+ResumeFolderInFile.txt
+error_analysis/

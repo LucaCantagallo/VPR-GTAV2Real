@@ -20,12 +20,11 @@ _base_preprocessing: &base_preprocessing
   use_random_grayscale: false
   use_gaussian_blur: false
   use_random_erasing: false
-
   use_color_jitter: false
-  jitter_brightness: 0.0
-  jitter_contrast: 0.0
-  jitter_saturation: 0.0
-  jitter_hue: 0.0
+  use_random_rotation: false
+  use_gaussian_noise: false
+
+
 
   normalize: true
   mean: [0.485, 0.456, 0.406]
@@ -45,13 +44,11 @@ train:
     use_center_crop: false
     use_horizontal_flip: false
     use_random_grayscale: false
-    use_gaussian_blur: false
-    
-    use_color_jitter: true
-    jitter_brightness: 0.3
-    jitter_contrast: 0.3
-    jitter_saturation: 0.3
-    jitter_hue: 0.05
+    use_gaussian_blur: false   
+    use_color_jitter: false
+    use_gaussian_noise: false
+    use_random_rotation: false
+
 
 
   n_epochs: 50
