@@ -1,0 +1,5 @@
+datasets:
+  gta: "/home/lcantagallo/VPR-GTAV2Real/src/dataset/GTAV"
+  alderley: "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Alderley/alderley_paired"
+  tokyo247: "/home/lcantagallo/VPR-GTAV2Real/src/dataset/Tokyo247/Tokyo_24_7"
+  gsv: "/home/lcantagallo/VPR-GTAV2Real/src/dataset/GSV-Cities"
