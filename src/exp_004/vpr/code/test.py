@@ -13,7 +13,7 @@ import sys
 from triplet_loader import test_paired_loader
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dataset import BaseDataset
-from models import MLPCosine
+from models import VPRModel
 from utils import load_params
 from settings import get_device, get_test_work_dir, set_seed, init_model
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     model_names = [os.path.split(path)[-1].split(".")[0] for path in model_paths]
 
     for j, path in enumerate(model_paths):
-        model = MLPCosine.load_model_safely(model, path, device=device)
+        model = VPRModel.load_model_safely(model, path, device=device)
         model.to(device, non_blocking=True)
         model.eval()
 

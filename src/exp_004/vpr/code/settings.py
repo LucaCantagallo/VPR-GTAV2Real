@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from utils import load_params, get_n_folders
-from models import MLPCosine
+from models import VPRModel
 
 def get_device():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -72,9 +72,9 @@ def get_test_work_dir(params, experiments_dir="./experiments"):
 def init_model(params, device, load_state_dict=True):
     model_params = params["model"].copy()
     state_dict = model_params.pop("state_dict", None) if load_state_dict else None
-    model = MLPCosine(device=device, **model_params)
+    model = VPRModel(device=device, **model_params) 
     if state_dict:
-        model.load_state_dict(torch.load(state_dict, map_location=device))
+        model = VPRModel.load_model_safely(model, state_dict, device)
     model.to(device)
     return model
 

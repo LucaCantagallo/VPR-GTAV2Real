@@ -62,8 +62,106 @@ Dopo il fallimento dell'approccio basato sulla cardinalità (ResNeXt), si è ten
 ### Analisi e Conclusioni (Candidate #2)
 Anche il candidato **ResNeSt-50 è stato scartato**. I risultati sono addirittura leggermente inferiori a ResNeXt.
 
+---
 
+## 4. Analisi Critica dei Fallimenti e Refactoring Architetturale
 
+Dopo il fallimento dei primi due candidati utilizzati "out-of-the-box" (ovvero mantenendo l'Average Pooling nativo), è stata condotta un'analisi più profonda.
+Il problema identificato non risiede nella capacità estrattiva delle backbone, ma nel **collo di bottiglia dell'Aggregatore**.
+
+* **Il problema dell'Average Pooling:** Le implementazioni standard di ResNet/ResNeSt terminano con un *Global Average Pooling* che media tutte le feature spaziali. In un task di VPR Sim-to-Real, questo "lava via" i dettagli discriminativi geometrici (es. spigoli unici), mischiandoli con feature di texture (cielo, strada sintetica) che variano troppo tra i domini.
+* **La Soluzione (GeM Pooling):** Si è deciso di implementare il **Generalized Mean Pooling (GeM)**. Il GeM (con parametro $p$ apprendibile) agisce come una via di mezzo tra MaxPool e AvgPool, permettendo alla rete di focalizzarsi sulle attivazioni spaziali più intense (i landmark) e ignorando il rumore di fondo.
+
+### Interventi sul Codice
+Per abilitare il GeM, è stato necessario un ulteriore refactoring strutturale:
+1.  **Chirurgia delle Backbone:** Le funzioni di build (`build_resnest50`, etc.) sono state modificate per "tagliare" la rete **prima** dell'`AvgPool`.
+    * *Output precedente:* Vettore 1D ($2048$).
+    * *Nuovo Output:* Tensore Spaziale 3D ($2048 \times 7 \times 7$).
+2.  **Modulo Aggregator:** Implementazione modulare di `GeM` in `aggregators.py`, inserita nella pipeline subito dopo la backbone.
 
 ---
 
+## 5. Candidate #3: ResNeSt-50 + GeM Pooling
+
+Con la nuova architettura modulare, si è lanciato il training del terzo candidato: **ResNeSt-50 accoppiata con GeM Pooling**.
+
+Per permettere il training di questa architettura, è stato necessario ridurre drasticamente il parallelismo nel file di configurazione (`pipeline.yaml`), accettando gradienti potenzialmente più rumorosi pur di sbloccare l'addestramento:
+
+| Parametro | Valore Precedente | Valore Attuale (Fix) |
+| :--- | :---: | :---: |
+| **Train Samples per Place** | 8 | **4** |
+| **Contrastive Places per Batch** | 48 | **5** |
+| **Immagini Totali per Batch** | 384 | **20** |
+
+### Risultati Candidate #3 (ResNeSt-50 + GeM)
+
+| Metrica | Baseline (ResNet50) | Candidate #3 (ResNeSt+GeM) | Delta vs Baseline |
+| :--- | :---: | :---: | :---: |
+| **Recall@1** | **46.47%** | 31.41% | **-15.06%** |
+| **Recall@5** | **67.31%** | 53.21% | -14.10% |
+| **Recall@10** | **75.96%** | 61.54% | -14.42% |
+| **Recall@50** | **93.59%** | 83.33% | -10.26% |
+
+### Analisi e Conclusioni (Candidate #3)
+L'esperimento con **ResNeSt-50 + GeM** ha registrato un **crollo verticale delle performance**, risultando la configurazione peggiore testata finora.
+
+---
+
+## 4. Candidate #3: ConvNeXt-Tiny
+
+Abbandonando la famiglia ResNet, si è testata **ConvNeXt-Tiny**. Questa architettura rappresenta lo stato dell'arte delle CNN moderne (2022), progettata per competere con i Vision Transformers integrando modernizzazioni strutturali (kernel 7x7, LayerNorm, GELU, patchify stem).
+
+### Configurazione Training
+* **Modello:** `convnext_tiny` (Pesi ImageNet-1k V1).
+* **Batch Size:** 384 immagini (Configurazione Full: `48 places x 8 samples`).
+* **Output Dim:** 768 (Dimensione nativa, senza compressione o espansione artificiale).
+* **Aggregatore:** Average Pooling (Standard).
+
+### Risultati Candidate #3
+
+| Metrica | Baseline (ResNet50) | Candidate #3 (ConvNeXt-Tiny) | Delta vs Baseline |
+| :--- | :---: | :---: | :---: |
+| **Recall@1** | **46.47%** | 43.59% | **-2.88%** |
+| **Recall@5** | **67.31%** | 63.46% | -3.85% |
+| **Recall@10** | **75.96%** | 74.36% | -1.60% |
+| **Recall@50** | **93.59%** | 89.42% | -4.17% |
+
+### Analisi e Conclusioni (Candidate #3)
+Il candidato **ConvNeXt-Tiny** ha ottenuto prestazioni **lievemente inferiori alla baseline** (-2.88% a R@1).
+Il risultato è controintuitivo considerando la superiorità architetturale di ConvNeXt su ImageNet, ma evidenzia tre criticità specifiche del task VPR *Synth-to-Real*:
+
+1.  **Collo di Bottiglia Dimensionale:** La Baseline proietta le feature in uno spazio a **2048** dimensioni. ConvNeXt-Tiny lavora nativamente a **768**. Questa compressione intrinseca ($2.6\times$ inferiore), combinata con l'Average Pooling, potrebbe causare una perdita di discriminabilità sui dettagli fini necessari per distinguere luoghi simili.
+2.  **Il Limite dell'Average Pooling:** ConvNeXt estrae feature ad alto livello semantico (oggetti interi). L'uso dell'*Average Pooling* (standard in classificazione) media queste feature con il "rumore semantico" del contesto (es. cielo e asfalto sintetici di GTA), diluendo l'informazione utile per la geolocalizzazione.
+3.  **Drop-in Replacement:** L'utilizzo degli stessi iperparametri della ResNet (LR, Weight Decay) su un'architettura che usa LayerNorm e dinamiche di gradiente diverse potrebbe non essere ottimale senza un tuning specifico.
+
+---
+
+## 5. Candidate #4: ConvNeXt-Tiny + GeM Pooling
+
+Dopo il risultato quasi incoraggiante del Candidate #3 (ConvNeXt + AvgPool, che perdeva solo il 3% circa), si è tentato di risolvere il problema del "rumore di sfondo" sostituendo l'Average Pooling con il **GeM Pooling**.
+L'ipotesi era che il GeM avrebbe aiutato la ConvNeXt a focalizzarsi sui landmark strutturali, ignorando gli artefatti sintetici.
+
+### Configurazione Training
+* **Modello:** `convnext_tiny` (Pesi ImageNet-1k V1).
+* **Aggregatore:** **GeM (Generalized Mean Pooling)**, con $p$ inizializzato a 3.0.
+* **Batch Size:** 384 immagini (Configurazione Full).
+* **Output Dim:** 768.
+
+### Risultati Candidate #4
+
+| Metrica | Baseline (ResNet50) | Candidate #4 (ConvNeXt+GeM) | Delta vs Baseline |
+| :--- | :---: | :---: | :---: |
+| **Recall@1** | **46.47%** | 22.76% | **-23.71%** |
+| **Recall@5** | **67.31%** | 44.87% | -22.44% |
+| **Recall@10** | **75.96%** | 51.60% | -24.36% |
+| **Recall@50** | **93.59%** | 75.32% | -18.27% |
+
+### Analisi e Conclusioni (Candidate #4)
+L'esperimento è risultato in un **fallimento critico**. Le performance sono crollate a livelli inaccettabili (quasi dimezzata la Recall@1 rispetto alla baseline).
+
+**Diagnosi del Crollo:**
+Questo risultato evidenzia una **incompatibilità strutturale** tra le feature di ConvNeXt e l'aggregazione GeM:
+1.  **Natura delle Feature:** A differenza delle ResNet (che producono attivazioni "spiky", ideali per GeM/Max pooling), ConvNeXt utilizza LayerNorm e attivazioni GELU che tendono a produrre mappe di feature più "lisce" e distribuite spazialmente.
+2.  **Soppressione dell'Informazione:** Applicando un pooling che enfatizza i picchi (GeM con $p=3$), la rete ha probabilmente soppresso informazioni contestuali critiche che erano distribuite in modo uniforme sulla feature map, distruggendo la rappresentazione semantica del luogo.
+
+---

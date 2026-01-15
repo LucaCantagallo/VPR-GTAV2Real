@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from models import MLPCosine
+from models import VPRModel
 from utils import get_n_folders, load_params
 from learning_strategy import get_dataloaders, run_epoch, run_epoch_valid, refresh_dataloaders, get_loss_fn
 

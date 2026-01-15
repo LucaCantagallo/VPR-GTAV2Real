@@ -31,9 +31,17 @@ _base_preprocessing: &base_preprocessing
   std: [0.229, 0.224, 0.225]
 
 model:
-  model_name: "resnest50"
-  trainable_from_layer: null
-  state_dict: null 
+  model_name: "resnet50"
+  
+  aggregator: "avg"            
+  aggregator_params: {}
+  
+  head_type: "mlp"            
+  output_dim: 2048             
+  normalize_output: false      
+  
+  trainable_from_layer: null  
+  state_dict: null
 
 train:
   preprocessing:
