@@ -165,3 +165,89 @@ Questo risultato evidenzia una **incompatibilità strutturale** tra le feature d
 2.  **Soppressione dell'Informazione:** Applicando un pooling che enfatizza i picchi (GeM con $p=3$), la rete ha probabilmente soppresso informazioni contestuali critiche che erano distribuite in modo uniforme sulla feature map, distruggendo la rappresentazione semantica del luogo.
 
 ---
+
+## 6. Candidate #5: DINOv2 (ViT-B/14 + GeM) — La Svolta
+
+Dopo i fallimenti delle architetture CNN moderne (ConvNeXt) e delle varianti ResNet avanzate, si è optato per un cambio di paradigma radicale:
+1.  **Architettura:** Passaggio dalle CNN ai **Vision Transformers (ViT)**.
+2.  **Learning Paradigm:** Passaggio dal Supervised Learning (ImageNet labels) al **Self-Supervised Learning (SSL)**.
+
+Il candidato scelto è **DINOv2** (versione Base, ViT-B/14). L'ipotesi è che, essendo addestrato senza etichette per massimizzare la corrispondenza tra view diverse, DINOv2 apprenda rappresentazioni robuste basate sulla **geometria e semantica strutturale** piuttosto che sulle texture fini. Questo è cruciale per il task *GTA-to-Real*, dove la geometria è consistente ma le texture differiscono (Domain Gap).
+
+### Implementazione Tecnica (Token Strategy)
+Per adattare un ViT al task di VPR (che beneficia del GeM Pooling), non si è utilizzato l'output standard (il *CLS token*, che è un vettore 1D).
+È stata implementata una strategia ibrida:
+* **Patch Extraction:** Si estraggono i *Patch Tokens* ($N$ vettori).
+* **Spatial Reshape:** I token vengono rimodellati in un tensore 3D pseudo-spaziale ($B \times 768 \times 16 \times 16$), simulando una feature map.
+* **Aggregazione:** Su questa mappa viene applicato il **GeM Pooling**.
+
+### Configurazione Training
+* **Modello:** `dinov2_vitb14` (Pesi ufficiali Facebook Research).
+* **Backbone Status:** **Frozen** (`trainable_from_layer: null`). Si addestra solo la testa (Linear Probing).
+* **Aggregatore:** GeM Pooling.
+* **Output Dim:** 512 (Projector MLP da 768 a 512).
+
+### Risultati Candidate #5 (DINOv2)
+
+| Metrica | Baseline (ResNet50) | Candidate #5 (DINOv2) | Delta vs Baseline |
+| :--- | :---: | :---: | :---: |
+| **Recall@1** | 46.47% | **81.09%** | **+34.62%** |
+| **Recall@5** | 67.31% | **90.06%** | **+22.75%** |
+| **Recall@10** | 75.96% | **91.99%** | **+16.03%** |
+| **Recall@50** | 93.59% | **96.47%** | +2.88% |
+
+### Analisi e Conclusioni (Candidate #5)
+Il risultato è **eccezionale**. DINOv2 non solo batte la baseline, ma la distrugge, portando la Recall@1 da un mediocre 46% a un eccellente **81%**.
+
+**Perché ha funzionato dove gli altri hanno fallito?**
+1.  **Robustezza al Domain Shift:** Mentre ResNet e ConvNeXt (Supervised) cercavano pattern di texture (asfalto realistico vs asfalto finto), DINOv2 (SSL) "comprende" la scena 3D. Riconosce che un palazzo è un palazzo indipendentemente dal rendering grafico.
+2.  **Efficacia del Frozen Backbone:** Il fatto che la backbone fosse congelata ha impedito al modello di *overfittare* sullo stile grafico di GTA V. Abbiamo sfruttato la potenza delle feature pre-addestrate pure, adattando solo la proiezione geometrica (GeM + Head).
+3.  **Spatial Tokens vs CLS:** L'intuizione di usare i patch token spaziali con GeM (invece del CLS token standard dei ViT) ha permesso di mantenere la discriminabilità spaziale necessaria per il Place Recognition.
+
+----
+
+## 7. Ottimizzazione di DINOv2: Scaling e Resolution Boost
+
+Dopo aver identificato **DINOv2 (ViT-B/14)** come l'architettura vincente (Recall@1 > 80%), l'esperimento si è esteso per indagare se l'aumento della capacità computazionale (Scaling) o della densità informativa (Resolution) potesse spingere ulteriormente le performance verso il 90% in Top-1.
+
+Sono state confrontate 4 configurazioni della famiglia DINOv2, mantenendo fisse le condizioni di training (Backbone Frozen, GeM Pooling, Dataset GTA):
+
+1.  **Baseline (Exp 1):** DINOv2 Base (ViT-B/14) @ 224x224.
+2.  **Resolution Boost (Exp 2):** DINOv2 Base (ViT-B/14) @ **322x322** (Aumento dei patch token da 256 a 529).
+3.  **Model Scaling (Exp 3):** DINOv2 **Large** (ViT-L/14) @ 224x224.
+4.  **Max Config (Exp 4):** DINOv2 Large (ViT-L/14) @ 322x322.
+
+### Tabella Comparativa Risultati
+
+Di seguito il confronto diretto tra la vecchia baseline (ResNet50) e le varianti DINOv2. Le metriche di interesse primario (Top-5 e Top-10) sono evidenziate.
+
+| Configurazione | Backbone | Risoluzione | Recall@1 | Recall@5 | Recall@10 | Note |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **Old Baseline** | ResNet50 | 224 | 46.47% | 67.31% | 75.96% | Saturazione performance |
+| **DINO Base** | ViT-B/14 | 224 | **81.09%** | 90.06% | 91.99% | **Best Trade-off** |
+| **DINO Res+** | ViT-B/14 | 322 | 80.77% | **91.35%** | 92.63% | Best R@5/10 (ex-aequo) |
+| **DINO Large** | ViT-L/14 | 224 | 79.81% | 91.03% | **93.27%** | Lieve calo in R@1 |
+| **DINO Max** | ViT-L/14 | 322 | 79.17% | 89.74% | 92.95% | Regressione |
+
+### Analisi dei Trend
+
+#### 1. Impatto della Risoluzione (224 vs 322)
+Passando da 224px a 322px con il modello Base (Exp 1 vs Exp 2), osserviamo un comportamento ibrido:
+* **Top-1 (Recall esatta):** Si nota una lievissima flessione (-0.32%).
+* **Top-5 / Top-10 (Retrieval robusto):** Si registra un miglioramento costante (+1.29% sulla R@5).
+**Interpretazione:** Aumentare la risoluzione incrementa il numero di token su cui il GeM può lavorare ($16 \times 16 \to 23 \times 23$). Questo aiuta la rete a recuperare candidati corretti nella "shortlist" (Top-5/10) grazie a dettagli più fini, ma introduce potenzialmente un leggero "rumore" geometrico che disturba il match perfetto (Top-1) quando il domain gap è elevato.
+
+#### 2. Impatto dello Scaling (Base vs Large)
+L'utilizzo del modello **Large** (Exp 3 e 4) ha portato a risultati controintuitivi, segnando una regressione sulla Recall@1 (~79%) rispetto alla versione Base (~81%).
+**Diagnosi:**
+* **Overfitting Semantico:** Il modello Large possiede una capacità di astrazione semantica superiore (addestrato su dataset più vasti). Tuttavia, mantenendolo **congelato** (Frozen), le sue feature potrebbero essere *troppo* specializzate su concetti di alto livello (oggetti complessi) e meno sensibili alla geometria pura degli edifici di GTA necessaria per questo task specifico.
+* **Curse of Dimensionality:** Proiettare feature più complesse (dimensione 1024 del Large) nello stesso spazio latente ridotto (512) tramite MLP lineare potrebbe aver causato una perdita di informazione maggiore rispetto alla proiezione dal modello Base (768).
+
+### Conclusioni Definitive e Selezione Modello
+L'analisi dimostra che nel contesto *Synthetic-to-Real* con risorse vincolate:
+1.  **Bigger is not always Better:** Aumentare la dimensione del modello senza Fine-Tuning non porta benefici diretti.
+2.  **Il Vincitore:** La configurazione **DINOv2 Base (ViT-B/14)** risulta la più robusta.
+    * La versione a **224px** è preferibile per efficienza computazionale e massima precisione R@1.
+    * La versione a **322px** è una valida alternativa se si vuole massimizzare la R@5 a costo di maggiore VRAM.
+
+Per il prosieguo del progetto, si conferma l'utilizzo di **DINOv2 Base**.

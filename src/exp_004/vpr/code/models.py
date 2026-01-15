@@ -8,6 +8,7 @@ from architectures.resnet50 import build_resnet50
 from architectures.resnext50 import build_resnext50 
 from architectures.resnest50 import build_resnest50
 from architectures.convnext import build_convnext_tiny
+from architectures.dinov2 import build_dinov2
 from aggregators import get_aggregator
 
 class VPRModel(nn.Module):
@@ -37,6 +38,9 @@ class VPRModel(nn.Module):
             self.backbone, self.backbone_dim = build_resnest50(state_dict)
         elif model_name == "convnext_tiny":  
             self.backbone, self.backbone_dim = build_convnext_tiny(state_dict)
+        elif "dinov2" in model_name:
+            variant = model_name.split("_")[-1] if "_" in model_name else "vitb14"
+            self.backbone, self.backbone_dim = build_dinov2(state_dict, variant)
         else:
             raise ValueError(f"Modello '{model_name}' non supportato.")
         
@@ -63,34 +67,67 @@ class VPRModel(nn.Module):
         else:
              raise ValueError(f"Head type '{head_type}' non supportato (usa 'linear' o 'mlp')")
 
-        self.freezed_part = OrderedDict()
-        self.trainable_part = OrderedDict()
+        self.freezed_part = None
+        self.trainable_part = None
 
-        if trainable_from_layer == "all":
-            self.trainable_part = self.backbone
-            self.freezed_part = None 
-        elif trainable_from_layer is not None:
-            found = False
-            for name, child in self.backbone.named_children():
-                if name == trainable_from_layer:
-                    found = True
-                if found:
-                    self.trainable_part[name] = child
+        if "dinov2" in model_name:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
+            
+            if trainable_from_layer is None:
+                self.freezed_part = self.backbone
+            else:
+                print(f"[INFO] DINOv2: Sblocco blocchi >= {trainable_from_layer}")
+                
+                start_layer = int(trainable_from_layer)
+                total_blocks = len(self.backbone.model.blocks)
+                
+                for i in range(start_layer, total_blocks):
+                    for param in self.backbone.model.blocks[i].parameters():
+                        param.requires_grad = True
+                
+                if hasattr(self.backbone.model, "norm"):
+                    for param in self.backbone.model.norm.parameters():
+                        param.requires_grad = True
+                
+                self.trainable_part = self.backbone
+
+        else:
+            self.freezed_part = OrderedDict()
+            self.trainable_part = OrderedDict()
+
+            if trainable_from_layer == "all":
+                self.trainable_part = self.backbone
+                self.freezed_part = None 
+            elif trainable_from_layer is not None:
+                found = False
+                for name, child in self.backbone.named_children():
+                    if name == trainable_from_layer:
+                        found = True
+                    if found:
+                        self.trainable_part[name] = child
+                    else:
+                        self.freezed_part[name] = child            
+            else:
+                self.freezed_part = self.backbone    
+                self.trainable_part = None 
+            
+            if isinstance(self.freezed_part, OrderedDict):
+                if len(self.freezed_part) > 0:
+                    self.freezed_part = nn.Sequential(self.freezed_part)
                 else:
-                    self.freezed_part[name] = child            
-        else:
-            self.freezed_part = self.backbone    
-            self.trainable_part = None 
-        
-        if isinstance(self.freezed_part, OrderedDict) and len(self.freezed_part) > 0:
-            self.freezed_part = nn.Sequential(self.freezed_part)
-        else:
-            if self.freezed_part is not None and len(self.freezed_part) == 0: self.freezed_part = None
+                    self.freezed_part = None
+            
+            if isinstance(self.trainable_part, OrderedDict):
+                if len(self.trainable_part) > 0:
+                    self.trainable_part = nn.Sequential(self.trainable_part)
+                else:
+                    self.trainable_part = None
+            
+            if self.freezed_part:
+                for param in self.freezed_part.parameters():
+                    param.requires_grad = False
 
-        if isinstance(self.trainable_part, OrderedDict) and len(self.trainable_part) > 0:
-             self.trainable_part = nn.Sequential(self.trainable_part)
-        else:
-             if self.trainable_part is not None and len(self.trainable_part) == 0: self.trainable_part = None
 
         if self.freezed_part:
             self.freezed_part.to(device)

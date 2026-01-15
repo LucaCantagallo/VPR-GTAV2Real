@@ -31,16 +31,17 @@ _base_preprocessing: &base_preprocessing
   std: [0.229, 0.224, 0.225]
 
 model:
-  model_name: "resnet50"
+  model_name: "dinov2_vitb14" 
   
-  aggregator: "avg"            
-  aggregator_params: {}
+  aggregator: "gem"
+  aggregator_params:
+    p: 3.0
   
   head_type: "mlp"            
-  output_dim: 2048             
-  normalize_output: false      
+  output_dim: 512           
+  normalize_output: true      
   
-  trainable_from_layer: null  
+  trainable_from_layer: 11
   state_dict: null
 
 train:
@@ -60,7 +61,7 @@ train:
 
 
   n_epochs: 50
-  lr: 1.e-4
+  lr: 1.e-5
   batch_size: 1
 
   early_stopping: true
